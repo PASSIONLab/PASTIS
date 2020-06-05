@@ -40,6 +40,7 @@
 -----
 
 To build PASTIS, you can clone or download the source from here
+  * mkdir build_release
   * cd build_release
   * cmake ..
   * cd ..
