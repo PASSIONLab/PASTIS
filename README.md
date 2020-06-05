@@ -4,7 +4,7 @@
 # Prerequisites
 -----
 1. Operating System.
-  * DISTAL is tested and known to work on the following operating systems.
+  * PASTIS is tested and known to work on the following operating systems.
     *  SUSE Linux Enterprise Server 15.
     *  Ubuntu 14.10.
     *  MacOS.
