@@ -43,10 +43,10 @@
       export SEQAN_HOME=/path/to/seqan
    ```
   * Checkout to `develop` branch of SeqAn `2.4.0`:
-    ```
+   ```
       cd $SEQAN_HOME
       git checkout develop
-    ```
+   ```
   * This is a header only library, so there's no need to build it.
   
 ## Build PASTIS
