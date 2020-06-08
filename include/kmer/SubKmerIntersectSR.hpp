@@ -1,13 +1,13 @@
 // Created by Saliya Ekanayake on 10/15/19.
 
-#ifndef DISTAL_SUBKMERINTERSECTSR_HPP
-#define DISTAL_SUBKMERINTERSECTSR_HPP
+#ifndef PASTIS_SUBKMERINTERSECTSR_HPP
+#define PASTIS_SUBKMERINTERSECTSR_HPP
 
 #include "../ParallelOps.hpp"
 #include "MatrixEntry.hpp"
 
 #include "../ParallelOps.hpp"
-namespace distal {
+namespace pastis {
   template<typename IN, typename OUT>
   struct SubKmerIntersect {
     static OUT id() {
@@ -57,4 +57,4 @@ namespace distal {
     }
   };
 }
-#endif //DISTAL_SUBKMERINTERSECTSR_HPP
+#endif //PASTIS_SUBKMERINTERSECTSR_HPP

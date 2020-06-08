@@ -1,10 +1,10 @@
 // Created by Saliya Ekanayake on 10/15/19.
 
-#ifndef DISTAL_COMMONKMERS_HPP
-#define DISTAL_COMMONKMERS_HPP
+#ifndef PASTIS_COMMONKMERS_HPP
+#define PASTIS_COMMONKMERS_HPP
 
 #include "../Types.hpp"
-namespace distal{
+namespace pastis{
   struct CommonKmers {
     /*! The number of common kmers between two sequences.
      * The maximum could be floor((l-k)/s)+1, where
@@ -60,4 +60,4 @@ namespace distal{
 	}
   };
 }
-#endif //DISTAL_COMMONKMERS_HPP
+#endif //PASTIS_COMMONKMERS_HPP

@@ -1,7 +1,7 @@
 // Created by Saliya Ekanayake on 2019-10-03.
 
-#ifndef DISTAL_NEARESTKMERS2_HPP
-#define DISTAL_NEARESTKMERS2_HPP
+#ifndef PASTIS_NEARESTKMERS2_HPP
+#define PASTIS_NEARESTKMERS2_HPP
 
 #include <unordered_map>
 #include <unordered_set>
@@ -11,7 +11,7 @@
 #include "MinMaxHeap.hpp"
 #include "kmer/Kmer.hpp"
 
-namespace distal {
+namespace pastis {
   typedef std::vector<std::vector<std::pair<short, char>>> SortedSM_T;
 
   /*!
@@ -50,22 +50,22 @@ namespace distal {
 
   class NearestKmers2 {
   public:
-    NearestKmers2(Alphabet& alph, distal::ScoreMatrix& sm);
+    NearestKmers2(Alphabet& alph, pastis::ScoreMatrix& sm);
     void print_sorted_sm();
-    std::vector<distal::Kmer> find_sub_kmers(const distal::Kmer& root, ushort m);
+    std::vector<pastis::Kmer> find_sub_kmers(const pastis::Kmer& root, ushort m);
 
   private:
     void populate_sorted_sm(Alphabet& alph, ScoreMatrix& sm);
     void explore(const Kmer& p,
-                 minmax::MinMaxHeap<distal::Kmer, std::vector<distal::Kmer>,
-                     distal::Kmer>& mmheap, const Kmer& root, ushort m);
-    void create_new_sub_kmer(const Kmer& p, std::priority_queue<distal::MinSub, std::vector<distal::MinSub>, distal::MinSub>& minheap,
-                             minmax::MinMaxHeap<distal::Kmer, std::vector<distal::Kmer>, distal::Kmer>& mmheap, bool pop_max,
+                 minmax::MinMaxHeap<pastis::Kmer, std::vector<pastis::Kmer>,
+                     pastis::Kmer>& mmheap, const Kmer& root, ushort m);
+    void create_new_sub_kmer(const Kmer& p, std::priority_queue<pastis::MinSub, std::vector<pastis::MinSub>, pastis::MinSub>& minheap,
+                             minmax::MinMaxHeap<pastis::Kmer, std::vector<pastis::Kmer>, pastis::Kmer>& mmheap, bool pop_max,
                              MinSub& ms);
     // Note, this includes the diagonal.
     SortedSM_T sorted_sm;
     Alphabet alph;
-    distal::ScoreMatrix sm;
+    pastis::ScoreMatrix sm;
   };
 
 
@@ -100,4 +100,4 @@ namespace distal {
   static const char* BLOSUM62_ALPH = "ARNDCQEGHILKMFPSTWYVBZX*";*/
 }
 
-#endif //DISTAL_NEARESTKMERS2_HPP
+#endif //PASTIS_NEARESTKMERS2_HPP
