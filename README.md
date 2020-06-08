@@ -1,8 +1,8 @@
 
 # PASTIS: Distributed Many-to-Many Protein Sequence Alignment Using Sparse Matrices
 
-
 ## Prerequisites
+
 1. Operating System.
   * PASTIS is tested and known to work on the following operating systems.
     *  SUSE Linux Enterprise Server 15.
@@ -13,13 +13,14 @@
 
 3. CMake 3.11 or above.
 
+4. Boost C++ Libraries.
 
 ## Dependencies
     
 1. CombBLAS.
-  * Download or clone CombBLAS from `https://bitbucket.org/berkeleylab/combinatorial-blas-2.0`
-  * Export the path to this directory as an environment variable `COMBBLAS_HOME`
-  * The following commands can be used to build and install CombBLAS
+  * Download or clone CombBLAS from `https://bitbucket.org/berkeleylab/combinatorial-blas-2.0`.
+  * Export the path to this directory as an environment variable `COMBBLAS_HOME`.
+  * The following commands can be used to build and install CombBLAS:
   ```
     cd $COMBBLAS_HOME/CombBLAS
     mkdir build
@@ -30,14 +31,18 @@
     make install         
   ```
 3. SeqAn.
-  * Download SeqAn `2.4.0` from `https://github.com/seqan/seqan/releases/tag/seqan-v2.4.0`
-  * Extract this to a folder and create an environment variable, `SEQAN_HOME`, pointing to it. 
+  * Download SeqAn `2.4.0` from `https://github.com/seqan/seqan/releases/tag/seqan-v2.4.0`.
+  * Extract this to a folder and create an environment variable, `SEQAN_HOME`, pointing to it.
+  * Checkout to `develop` branch of SeqAn `2.4.0`:
+    ```
+      cd $SEQAN_HOME
+      git checkout develop
+    ```
   * This is a header only library, so there's no need to build it.
-  
   
 ## Build PASTIS
 
-To build PASTIS, you can clone or download the source from here
+To build PASTIS, you can clone or download the source from here:
   * mkdir build_release
   * cd build_release
   * cmake ..
