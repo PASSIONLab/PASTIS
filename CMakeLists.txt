@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.11)
 project(pastis)
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(${PASTIS_INCLUDE_DIRS})
-link_directories(${PASTIS_LINK_DIRS})
+include_directories(
+	$ENV{SEQAN_HOME}/include 
+	$ENV{COMBBLAS_HOME}/CombBLAS/install/include)
+	# possibly add path to boost library (not necessary on Cori, just type 'module load boost')
+link_directories($ENV{COMBBLAS_HOME}/CombBLAS/install/lib)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
