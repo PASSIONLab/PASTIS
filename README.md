@@ -97,4 +97,5 @@ The parameters and options of PASTIS are as follows:
 ## Citation
 
 If you use PASTIS in your research, please cite our paper describing the algorithm and the implementation:
-Oguz Selvitopi*, Saliya Ekanayake*, Giulia Guidi, Georgios Pavlopoulos, Ariful Azad, and Aydın Buluç. Distributed Many-to-Many Protein Sequence Alignment Using Sparse Matrices. Proceedings of the International Conference for High Performance Computing, Networking, Storage, and Analysis (SC’20), 2020. (*:joint first authors)
+
+  * Oguz Selvitopi*, Saliya Ekanayake*, Giulia Guidi, Georgios Pavlopoulos, Ariful Azad, and Aydın Buluç. Distributed Many-to-Many Protein Sequence Alignment Using Sparse Matrices. Proceedings of the International Conference for High Performance Computing, Networking, Storage, and Analysis (SC’20), 2020. (*:joint first authors)
