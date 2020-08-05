@@ -79,3 +79,8 @@ if(OPENMP_FOUND OR OpenMP_CXX_FOUND)
         target_link_libraries(pastis PUBLIC "${OpenMP_CXX_FLAGS}")
     endif()
 endif()
+
+# Testing
+ENABLE_TESTING()
+INCLUDE(CTest)
+ADD_SUBDIRECTORY(tests)

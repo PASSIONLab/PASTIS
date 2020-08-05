@@ -64,14 +64,20 @@ works, and perform publicly and display publicly, and to permit others to do so.
    ```
   * This is a header only library, so there's no need to build it.
   
-## Build PASTIS
+## Build and Test PASTIS
 
-To build PASTIS, you can clone or download the source from here:
+To build PASTIS after cloning or downloading the source, use:
   * mkdir build_release
   * cd build_release
   * cmake ..
-  * cd ..
-  * ./build.sh
+  * make
+
+To run tests, use:
+  * ctest -V
+
+This will run PASTIS with the fasta file provided under tests directory, and
+produce output alignment information in the same directory.
+
   
 ## Run PASTIS
 
@@ -93,6 +99,20 @@ The parameters and options of PASTIS are as follows:
 - ```--ba <integer>```: Banded alignment with the indicated band size.
 - ```--af <string>```: Output file to write alignment information. 
 - ```--idxmap <string>```: Output file for input sequences to ids used in PASTIS.
+
+
+## Notes for running PASTIS on NERSC Cori
+
+The necessary modules for running PASTIS on Cori are as follows:
+* module swap PrgEnv-intel PrgEnv-gnu
+* module load cmake
+* module load boost
+
+Make sure to pass the correct MPI wrappers to successfully run the tests:
+* cmake -DMPIEXEC_EXECUTABLE=/usr/bin/srun ..
+* make
+* ctest -V
+
 
 ## Citation
 
