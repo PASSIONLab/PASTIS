@@ -33,10 +33,11 @@ works, and perform publicly and display publicly, and to permit others to do so.
 ## Dependencies
     
 1. CombBLAS.
-  * Download or clone CombBLAS from `https://bitbucket.org/berkeleylab/combinatorial-blas-2.0`.
+  * Download or clone CombBLAS from `https://github.com/PASSIONLab/CombBLAS.git`.
   * Export the path to this directory as an environment variable `COMBBLAS_HOME`.
    ```
-      export COMBBLAS_HOME=/path/to/combinatorial-blas-2.0
+      git clone https://github.com/PASSIONLab/CombBLAS.git
+      export COMBBLAS_HOME=$PWD
    ```
   * The following commands can be used to build and install CombBLAS:
   ```
