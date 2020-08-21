@@ -136,7 +136,7 @@ BandedAligner::apply_batch
 		seqan::AlignmentStats	stats;
 		std::stringstream		ss;
 
-		#pragma omp for schedule(static, 1000)
+		#pragma omp for
 		for (uint64_t i = 0; i < npairs; ++i)
 		{
 			computeAlignmentStats(stats, seqsh[i], seqsv[i], scoring_scheme);
@@ -173,3 +173,80 @@ BandedAligner::apply_batch
 
 	return;
 }
+
+
+
+// void
+// BandedAligner::apply_batch_sc
+// (
+//     seqan::StringSet<seqan::Peptide> &seqsh,
+// 	seqan::StringSet<seqan::Peptide> &seqsv,
+// 	uint64_t *lids,
+// 	uint64_t col_offset,
+// 	uint64_t row_offset,
+// 	PSpMat<pastis::CommonKmers>::Tuples &mattuples,
+// 	std::ofstream &afs,
+// 	std::ofstream &lfs
+// )
+// {
+// 	seqan::ExecutionPolicy<seqan::Parallel, seqan::Vectorial> exec_policy;
+
+// 	int numThreads = 1;
+// 	#ifdef THREADED
+// 	#pragma omp parallel
+//     {
+//       	numThreads = omp_get_num_threads();
+//     }
+// 	#endif
+
+// 	uint64_t npairs = seqan::length(seqsh);
+// 	setNumThreads(exec_policy, numThreads);
+
+// 	lfs << "processing batch of size " << npairs << " with "
+// 		<< numThreads << " threads " << std::endl;
+
+// 	auto start_time = std::chrono::system_clock::now();
+
+// 	// alignment
+// 	seqan::String<int16_t> scores =
+// 		localAlignmentScore(exec_policy, seqsh, seqsv, scoring_scheme,
+// 							-banded_half_width, banded_half_width);
+
+// 	auto end_time = std::chrono::system_clock::now();
+//   	add_time("FA:local_alignment", (ms_t(end_time - start_time)).count());
+
+// 	start_time = std::chrono::system_clock::now();
+
+// 	// stats
+// 	#pragma omp parallel
+// 	{
+// 		std::stringstream ss;
+// 		#pragma omp for
+// 		for (uint64_t i = 0; i < npairs; ++i)
+// 		{
+// 			int len_seqh = seqan::length(seqsh[i]);
+// 			int len_seqv = seqan::length(seqsv[i]);
+// 			ss << (col_offset + mattuples.colindex(lids[i])) << ","
+// 			   << (row_offset + mattuples.rowindex(lids[i]))  << ","
+// 			   << scores[i] << ","
+// 			   << len_seqh << ","
+// 			   << len_seqv << ","
+// 			   << ((double)scores[i]/(double)len_seqh) << ","
+// 			   << ((double)scores[i]/(double)len_seqv)
+// 			   << "\n";
+// 		}
+
+// 		#pragma omp critical
+// 		{
+// 			afs << ss.str();
+// 			afs.flush();
+// 		}
+// 	}
+
+// 	end_time = std::chrono::system_clock::now();
+//   	add_time("BA:compute_stats + string_op",
+// 			 (ms_t(end_time - start_time)).count());
+
+// 	return;
+
+// }

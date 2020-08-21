@@ -99,10 +99,17 @@ FullAligner::apply_batch
 	lfs << "processing batch of size " << npairs << " with "
 		<< numThreads << " threads " << std::endl;
 
+	static double raw_aln_time = 0.0;
 	auto start_time = std::chrono::system_clock::now();
+
+	auto beg_aln = std::chrono::system_clock::now();
 	
 	// alignment
 	localAlignment(exec_policy, seqsh, seqsv, scoring_scheme);
+
+	auto end_aln = std::chrono::system_clock::now();
+	raw_aln_time += (ms_t(end_aln - beg_aln)).count();
+	// std::cout << "raw alignment time " << raw_aln_time << " ms" << std::endl;
 	
 	auto end_time = std::chrono::system_clock::now();
   	add_time("FA:local_alignment", (ms_t(end_time - start_time)).count());
@@ -115,28 +122,36 @@ FullAligner::apply_batch
 		seqan::AlignmentStats	stats;
 		std::stringstream		ss;
 
-		#pragma omp for schedule(static, 1000)
+		#pragma omp for
 		for (uint64_t i = 0; i < npairs; ++i)
 		{
 			computeAlignmentStats(stats, seqsh[i], seqsv[i], scoring_scheme);
+
+			pastis::CommonKmers cks = mattuples.numvalue(lids[i]);
 			
 			double alen_minus_gapopens =
 				stats.alignmentLength - stats.numGapOpens;
 			int len_seqh = seqan::length(seqan::source(seqsh[i]));
 			int len_seqv = seqan::length(seqan::source(seqsv[i]));
-			ss << (col_offset + mattuples.colindex(lids[i])) << ","
-			   << (row_offset + mattuples.rowindex(lids[i]))  << ","
-			   << stats.alignmentIdentity << ","
-			   << len_seqh << ","
-			   << len_seqv << ","
-			   << (clippedEndPosition(seqsh[i]) -
-				   clippedBeginPosition(seqsh[i]) - 1) << ","
-			   << (clippedEndPosition(seqsv[i]) -
-				   clippedBeginPosition(seqsv[i]) - 1) << ","
-			   << stats.numGapOpens << ","
-			   << alen_minus_gapopens / len_seqh << ","
-			   << alen_minus_gapopens / len_seqv
-			   << "\n";
+			// if (std::max((alen_minus_gapopens / len_seqh),
+			// 			 (alen_minus_gapopens / len_seqv)) >= 0.7 &&
+			// 	stats.alignmentIdentity >= 30)
+			// {
+				ss << (col_offset + mattuples.colindex(lids[i])) << ","
+				   << (row_offset + mattuples.rowindex(lids[i]))  << ","
+				   << stats.alignmentIdentity << ","
+				   << len_seqh << ","
+				   << len_seqv << ","
+				   << (clippedEndPosition(seqsh[i]) -
+					   clippedBeginPosition(seqsh[i]) - 1) << ","
+				   << (clippedEndPosition(seqsv[i]) -
+					   clippedBeginPosition(seqsv[i]) - 1) << ","
+				   << stats.numGapOpens << ","
+				   << alen_minus_gapopens / len_seqh << ","
+				   << alen_minus_gapopens / len_seqv << ","
+				   << cks.count
+				   << "\n";
+			// }
 		}
 
 		#pragma omp critical
@@ -152,3 +167,85 @@ FullAligner::apply_batch
 
 	return;
 }
+
+
+
+// void
+// FullAligner::apply_batch_sc
+// (
+//     seqan::StringSet<seqan::Peptide> &seqsh,
+// 	seqan::StringSet<seqan::Peptide> &seqsv,
+// 	uint64_t *lids,
+// 	uint64_t col_offset,
+// 	uint64_t row_offset,
+// 	PSpMat<pastis::CommonKmers>::Tuples &mattuples,
+// 	std::ofstream &afs,
+// 	std::ofstream &lfs
+// )
+// {
+// 	seqan::ExecutionPolicy<seqan::Parallel, seqan::Vectorial> exec_policy;
+
+// 	int numThreads = 1;
+// 	#ifdef THREADED
+// 	#pragma omp parallel
+//     {
+//       	numThreads = omp_get_num_threads();
+//     }
+// 	#endif
+
+// 	uint64_t npairs = seqan::length(seqsh);
+// 	setNumThreads(exec_policy, numThreads);
+
+// 	lfs << "processing batch of size " << npairs << " with "
+// 		<< numThreads << " threads " << std::endl;
+
+// 	static double raw_aln_time = 0.0;
+// 	auto start_time = std::chrono::system_clock::now();
+
+// 	auto beg_aln = std::chrono::system_clock::now();
+
+// 	// alignment
+// 	seqan::String<int16_t> scores =
+// 		localAlignmentScore(exec_policy, seqsh, seqsv, scoring_scheme);
+
+// 	auto end_aln = std::chrono::system_clock::now();
+// 	raw_aln_time += (ms_t(end_aln - beg_aln)).count();
+// 	std::cout << "raw alignment time " << raw_aln_time << " ms" << std::endl;
+
+// 	auto end_time = std::chrono::system_clock::now();
+//   	add_time("FA:local_alignment", (ms_t(end_time - start_time)).count());
+
+// 	start_time = std::chrono::system_clock::now();
+
+// 	// stats
+// 	#pragma omp parallel
+// 	{
+// 		std::stringstream ss;
+// 		#pragma omp for
+// 		for (uint64_t i = 0; i < npairs; ++i)
+// 		{
+// 			int len_seqh = seqan::length(seqsh[i]);
+// 			int len_seqv = seqan::length(seqsv[i]);
+// 			ss << (col_offset + mattuples.colindex(lids[i])) << ","
+// 			   << (row_offset + mattuples.rowindex(lids[i]))  << ","
+// 			   << scores[i] << ","
+// 			   << len_seqh << ","
+// 			   << len_seqv << ","
+// 			   << ((double)scores[i]/(double)len_seqh) << ","
+// 			   << ((double)scores[i]/(double)len_seqv)
+// 			   << "\n";
+// 		}
+
+// 		#pragma omp critical
+// 		{
+// 			afs << ss.str();
+// 			afs.flush();
+// 		}
+// 	}
+
+// 	end_time = std::chrono::system_clock::now();
+//   	add_time("FA:compute_stats + string_op",
+// 			 (ms_t(end_time - start_time)).count());
+
+// 	return;
+// }

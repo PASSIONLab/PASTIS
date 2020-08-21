@@ -30,6 +30,15 @@ public:
 			   std::ofstream &afs,
 			   std::ofstream &lfs) override;
 
+  // void
+  // apply_batch_sc (seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsh,
+  // 				  seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsv,
+  // 				  uint64_t *lids,
+  // 				  uint64_t col_offset,
+  // 				  uint64_t row_offset,
+  // 				  PSpMat<pastis::CommonKmers>::Tuples &mattuples,
+  // 				  std::ofstream &afs, std::ofstream &lfs) override;
+
   // std::vector<AlignmentInfo> alignments;
 
 private:

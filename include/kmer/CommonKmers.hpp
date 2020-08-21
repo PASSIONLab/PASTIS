@@ -13,6 +13,7 @@ namespace pastis{
      * we can represent the count as unsigned short as well.
      */
     ushort count;
+	short score;
 
     /*! The position within the sequence, which is
      * much less than 2^16 - 1 for proteins
@@ -20,16 +21,17 @@ namespace pastis{
     std::pair<ushort, ushort> first;
     std::pair<ushort, ushort> second;
 
-    CommonKmers() : count(1) {
+	  CommonKmers() : count(1), score(-1) {
     }
 
     explicit CommonKmers(ushort count) : count(count){
     }
 
     friend std::ostream &operator<<(std::ostream &os, const CommonKmers &m) {
-      os << "|" << m.count << "(" << m.first.first << "," << m.first.second
+      os << "| " << m.count << " (" << m.first.first << "," << m.first.second
          << ")(" <<
-         m.second.first << "," << m.second.second << ")| ";
+         m.second.first << "," << m.second.second << ") | "
+		 << m.score;
       return os;
     }
 

@@ -22,6 +22,7 @@ namespace pastis {
       res.first.second = arg1.first.second;
       res.second.first = arg2.first.first;
       res.second.second = arg2.first.second;
+	  res.score = std::max(arg1.score, arg2.score);
       return res;
     }
 
@@ -35,6 +36,7 @@ namespace pastis {
       OUT a;
       a.first.first = arg1.offset;
       a.first.second = arg2.offset;
+	  a.score = std::max(arg1.cost, arg2.cost);
       return a;
     }
 

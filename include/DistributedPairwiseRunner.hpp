@@ -26,17 +26,22 @@
 class DistributedPairwiseRunner {
 public:
   DistributedPairwiseRunner(std::shared_ptr<DistributedFastaData> dfd,
-                     PSpMat<pastis::CommonKmers>::DCCols * localmat, int afreq,
+                     PSpMat<pastis::CommonKmers>::DCCols * localmat,
+							PSpMat<pastis::CommonKmers>::MPI_DCCols *glmat,
+							int afreq,
 		     uint64_t rowoffset, uint64_t coloffset,
                      const std::shared_ptr<ParallelOps> &parops);
 
 //  uint64_t align_seqs();
   void write_overlaps(const char *file);
   void run(PairwiseFunction *pf, const char* file, std::ofstream& lfs, int log_freq);
-  void runv2(PairwiseFunction *pf, const char* file, std::ofstream& lfs, int log_freq);
+  void run_batch(PairwiseFunction *pf, const char* file, std::ofstream& lfs,
+				 int log_freq, int ckthr, float mosthr, TraceUtils tu,
+				 bool score_only = false);
 
 private:
   PSpMat<pastis::CommonKmers>::DCCols * spSeq;
+  PSpMat<pastis::CommonKmers>::MPI_DCCols * gmat;
   uint64_t row_offset;  // local to global row id offset  
   uint64_t col_offset;	// ditto
   std::shared_ptr<DistributedFastaData> dfd;

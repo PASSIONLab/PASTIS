@@ -27,6 +27,8 @@ namespace pastis {
                               const std::shared_ptr<ParallelOps>& parops,
                               std::unordered_set<Kmer, Kmer>& local_kmers) {
 
+	  pastis::Blosum62 bsm62;
+
       auto num_kmers = static_cast<ushort>((floor((len - k) * 1.0 / s)) + 1);
       // TODO: Saliya - this can be improved using bit operators
       ushort base = alp.size;
@@ -56,7 +58,9 @@ namespace pastis {
 
         /*! Offset is relative to the sequence start, so unsigned short is
          * good enough. */
-        lvals.emplace_back(0, static_cast<ushort &&>(i - start_offset));
+		// @OGUZ-EDIT make first entry self score
+        lvals.emplace_back(bsm62.self_score(kmer_str),
+						   static_cast<ushort &&>(i - start_offset));
       }
 
       if (count != num_kmers) {

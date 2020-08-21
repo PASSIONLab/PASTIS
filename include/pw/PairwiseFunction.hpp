@@ -37,6 +37,16 @@ public:
 			   std::ofstream &afs,
 			   std::ofstream &lfs) = 0;
 
+  // virtual
+  // void
+  // apply_batch_sc (seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsh,
+  // 				  seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsv,
+  // 				  uint64_t *lids,
+  // 				  uint64_t col_offset,
+  // 				  uint64_t row_offset,
+  // 				  PSpMat<pastis::CommonKmers>::Tuples &mattuples,
+  // 				  std::ofstream &afs, std::ofstream &lfs) = 0;
+
 
   void add_time(std::string type, double duration);
   void print_avg_times(std::shared_ptr<ParallelOps> parops, std::ofstream &lfs);

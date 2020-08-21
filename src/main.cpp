@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cmath>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+// #include <boost/uuid/uuid.hpp>
+// #include <boost/uuid/uuid_generators.hpp>
+// #include <boost/uuid/uuid_io.hpp>
 #include "../include/Constants.hpp"
 #include "../include/ParallelOps.hpp"
 #include "../include/ParallelFastaReader.hpp"
@@ -19,6 +19,7 @@
 #include "../include/kmer/KmerOps.hpp"
 #include "../include/kmer/KmerIntersectSR.hpp"
 #include "../include/kmer/SubKmerIntersectSR.hpp"
+#include "../include/kmer/sr.hpp"
 #include <map>
 #include <fstream>
 
@@ -85,324 +86,292 @@ std::string print_str;
 int seed_count = 2;
 
 /*! Logging information */
-std::string job_name = "";
+std::string job_name = "pastis";
 std::string proc_log_file;
 std::ofstream proc_log_stream;
 int log_freq;
 
-int main(int argc, char **argv) {
-  parops = ParallelOps::init(&argc, &argv);
-  int ret = parse_args(argc, argv);
-  if (ret < 0) {
-    parops->teardown_parallelism();
-    return ret;
-  }
+// Common k-mer threshold
+int ckthr = 0;
 
-  /*! bcast job id */
-  // Sender
-  int job_name_length = job_name.length();
-
-  if(parops->world_proc_rank == 0) {
-    MPI_Bcast(&job_name[0], job_name_length, MPI_CHAR, 0, MPI_COMM_WORLD);
-  } else {
-    char* buf = new char[job_name_length];
-    MPI_Bcast(buf, job_name_length, MPI_CHAR, 0, MPI_COMM_WORLD);
-    std::string s(buf);
-    job_name = s;
-    delete [] buf;
-  }
-
-    int nthreads = 1;
-#ifdef THREADED
-#pragma omp parallel
-    {
-        nthreads = omp_get_num_threads();
-    }
-#endif
-    
-    int nprocs, myrank;
-    MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
-    MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-    if(myrank == 0)
-    {
-        std::cout << "Process Grid (p x p x t): " << sqrt(nprocs) << " x " << sqrt(nprocs) << " x " << nthreads << std::endl;
-    }
-
-  proc_log_file = job_name + "_rank_" + std::to_string(parops->world_proc_rank) + "_log.txt";
-  proc_log_stream.open(proc_log_file);
-
-  is_print_rank = (parops->world_proc_rank == 0);
-  std::shared_ptr<TimePod> tp = std::make_shared<TimePod>();
-  TraceUtils tu(is_print_rank);
-
-  /*! Print start time information */
-  tp->times["start_main"] = std::chrono::system_clock::now();
-  std::time_t start_prog_time = std::chrono::system_clock::to_time_t(
-    tp->times["start_main"]);
-  print_str = "\nINFO: Program started on ";
-  print_str.append(std::ctime(&start_prog_time));
-  print_str.append("\nINFO: Job ID ").append(job_name).append("\n");
-  pretty_print_config(print_str);
-  tu.print_str(print_str);
-
-  /*! Read and distribute fasta data */
-  tp->times["start_main:newDFD()"] = std::chrono::system_clock::now();
-  std::shared_ptr<DistributedFastaData> dfd
-    = std::make_shared<DistributedFastaData>(
-      input_file.c_str(), idx_map_file.c_str(), input_overlap,
-      klength, parops, tp, tu);
-  tp->times["end_main:newDFD()"] = std::chrono::system_clock::now();
-
-#ifndef NDEBUG
-  //  TraceUtils::print_fasta_data(fd, parops);
-#endif
-
-  if (dfd->global_count() != seq_count) {
-    uint64_t final_seq_count = dfd->global_count();
-    print_str = "\nINFO: Modfied sequence count\n";
-    print_str.append("  Final sequence count: ")
-      .append(std::to_string(final_seq_count))
-      .append(" (").append(
-        std::to_string((((seq_count - final_seq_count) * 100.0) / seq_count)))
-      .append("% removed)");
-
-    seq_count = dfd->global_count();
-    print_str += "\n";
-    tu.print_str(print_str);
-  }
-
-  /*! Create alphabet */
-  Alphabet alph(alph_t);
-
-  /*! Generate sequences by kmers matrix */
-  std::unordered_set<pastis::Kmer, pastis::Kmer> local_kmers;
-
-  tp->times["start_main:genA()"] = std::chrono::system_clock::now();
-  PSpMat<pastis::MatrixEntry>::MPI_DCCols A =
-      pastis::KmerOps::generate_A(
-          seq_count,dfd, klength, kstride,
-          alph, parops, tp, local_kmers);
-
-  tu.print_str("Matrix A: ");
-  tu.print_str("\nLoad imbalance: " + std::to_string(A.LoadImbalance()) + "\n");
-
-  tp->times["end_main:genA()"] = std::chrono::system_clock::now();
-
-  A.PrintInfo();
-
-  auto At = A;
-  tp->times["start_main:At()"] = tp->times["end_main:genA()"];
-  At.Transpose();
-  tu.print_str("Matrix At: ");
-  At.PrintInfo();
-  tp->times["end_main:At()"] = std::chrono::system_clock::now();
-
-  PSpMat<pastis::MatrixEntry>::MPI_DCCols* S = nullptr;
-  if (add_substitue_kmers) {
-    tp->times["start_main:genS()"] = std::chrono::system_clock::now();;
-    S = new PSpMat<pastis::MatrixEntry>::MPI_DCCols(pastis::KmerOps::generate_S(klength, subk_count, alph, parops, tp,
-                                  local_kmers));
-    tp->times["end_main:genS()"] = std::chrono::system_clock::now();;
-    tu.print_str("Matrix S: ");
-    tu.print_str("\nLoad imbalance: " + std::to_string(S->LoadImbalance()) + "\n");
-    S->PrintInfo();
-
-    tp->times["start_main:AxS()"] = tp->times["end_main:genS()"];
-    proc_log_stream << "INFO: Rank: " << parops->world_proc_rank << " starting AS" << std::endl;
-    //A = Mult_AnXBn_Synch<SubKmerIntersectSR_t, pastis::MatrixEntry, PSpMat<pastis::MatrixEntry>::DCCols>(A, *S);
-    A = Mult_AnXBn_DoubleBuff<SubKmerIntersectSR_t, pastis::MatrixEntry, PSpMat<pastis::MatrixEntry>::DCCols>(A, *S);
-    proc_log_stream << "INFO: Rank: " << parops->world_proc_rank << " done AS" << std::endl;
-    // Note, AS is now A.
-    tu.print_str("Matrix AS: ");
-    tu.print_str("\nLoad imbalance: " + std::to_string(A.LoadImbalance()) + "\n");
-    A.PrintInfo();
-    tp->times["end_main:AxS()"] = std::chrono::system_clock::now();
-    delete S;
-  }
+// Score threshold
+float mosthr = -1.0;
 
 
-  tp->times["start_main:(AS)At()"] = std::chrono::system_clock::now();
-  proc_log_stream << "INFO: Rank: " << parops->world_proc_rank << " starting AAt" << std::endl;
-  //PSpMat<pastis::CommonKmers>::MPI_DCCols C = Mult_AnXBn_Synch<KmerIntersectSR_t,pastis::CommonKmers, PSpMat<pastis::CommonKmers>::DCCols>(A, At);
-  PSpMat<pastis::CommonKmers>::MPI_DCCols C = Mult_AnXBn_DoubleBuff<KmerIntersectSR_t,pastis::CommonKmers, PSpMat<pastis::CommonKmers>::DCCols>(A, At);
-  proc_log_stream << "INFO: Rank: " << parops->world_proc_rank << " done AAt" << std::endl;
-  tu.print_str(
-      "Matrix AAt: Overlaps after k-mer finding (nnz(C) - diagonal): "
-      + std::to_string(C.getnnz() - seq_count)
-      + "\nLoad imbalance: " + std::to_string(C.LoadImbalance()) + "\n");
-  tp->times["end_main:(AS)At()"] = std::chrono::system_clock::now();
+int
+main
+(
+    int argc,
+	char **argv
+)
+{
+	parops = ParallelOps::init(&argc, &argv);
+	int ret = parse_args(argc, argv);
+	if (ret < 0)
+	{
+	  	parops->teardown_parallelism();
+	  	return ret;
+	}
 
+	/*! bcast job id */
+	// Sender
+	int job_name_length = job_name.length();
 
-  tu.print_str("Matrix B, i.e AAt or ASAt: ");
-  C.PrintInfo();
+	if (parops->world_proc_rank == 0)
+	{
+	  	MPI_Bcast(&job_name[0], job_name_length, MPI_CHAR, 0, MPI_COMM_WORLD);
+	} else
+	{
+		char* buf = new char[job_name_length];
+		MPI_Bcast(buf, job_name_length, MPI_CHAR, 0, MPI_COMM_WORLD);
+		std::string s(buf);
+		job_name = s;
+		delete [] buf;
+	}
 
-  // the output matrix may be non-symmetric when substitutes are used
-  if (add_substitue_kmers)
-  {
-  	auto CT = C;
-  	CT.Transpose();
-  	CT.Apply([] (pastis::CommonKmers &arg)
-  			 {
-  				 std::swap(arg.first.first, arg.first.second);
-  				 std::swap(arg.second.first, arg.second.second);
-  				 return arg;
-  			 });
-  	C += CT;
-  	
-  	tu.print_str("Matrix B, i.e AAt or ASAt: (after sym) ");
-  	C.PrintInfo();
-  }
-  tu.print_str("Matrix C: ");
-  tu.print_str("\nLoad imbalance: " + std::to_string(C.LoadImbalance()) + "\n");
-  
+	int nthreads = 1;
+  	#ifdef THREADED
+  	#pragma omp parallel
+	{
+		nthreads = omp_get_num_threads();
+	}
+  	#endif
 
-#ifndef NDEBUG
-  /*! Test multiplication */
-  // tu.print_str("Matrix B, i.e AAt or ASAt: ");
-  // C.PrintInfo();
+	int nprocs, myrank;
+	MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
+	MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+	if (myrank == 0)
+	{
+		std::cout << "Process Grid (p x p x t): "
+				  << sqrt(nprocs) << " x " << sqrt(nprocs) << " x "
+				  << nthreads << std::endl;
+	}
 
-  // rows and cols in the result
-//  uint64_t n_cols = seq_count;
-//  uint64_t n_rows = n_cols;
-//  int pr = parops->grid->GetGridRows();
-//  int pc = parops->grid->GetGridCols();
-//
-//  int row_rank = parops->grid->GetRankInProcRow();
-//  int col_rank = parops->grid->GetRankInProcCol();
-//  uint64_t m_perproc = n_rows / pr;
-//  uint64_t n_perproc = n_cols / pc;
-//  PSpMat<pastis::CommonKmers>::DCCols *spSeq = C.seqptr(); // local submatrix
-//  uint64_t l_row_start = col_rank * m_perproc; // first row in this process
-//  uint64_t l_col_start = row_rank * n_perproc; // first col in this process
-//
-//  std::cout<<std::endl<<spSeq->begcol().colid()<<" " <<spSeq->endcol().colid()<<std::endl;
+	proc_log_file = job_name + "_rank_" +
+		std::to_string(parops->world_proc_rank) + "_log.txt";
+	proc_log_stream.open(proc_log_file);
 
-//  std::ofstream rf, cf, vf;
-//  int flag;
-//  if (parops->world_proc_rank > 0) {
-//    MPI_Recv(&flag, 1, MPI_INT, parops->world_proc_rank - 1,
-//             99, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-//  }
-//  rf.open("row_ids.txt", std::ios::app);
-//  cf.open("col_ids.txt", std::ios::app);
-//  vf.open("values.txt", std::ios::app);
+	is_print_rank = (parops->world_proc_rank == 0);
+	std::shared_ptr<TimePod> tp = std::make_shared<TimePod>();
+	TraceUtils tu(is_print_rank);
 
-//
-//  std::cout << "\nRank: " << parops->world_proc_rank << "\n writing data\n";
-//
-//  for (auto colit = spSeq->begcol();
-//       colit != spSeq->endcol(); ++colit) // iterate over columns
-//  {
-//    int64_t lj = colit.colid(); // local numbering
-//    int64_t j = lj + l_col_start;
-//
-//    for (auto nzit = spSeq->begnz(colit);
-//         nzit < spSeq->endnz(colit); ++nzit) {
-//
-//      int64_t li = nzit.rowid();
-//      int64_t i = li + l_row_start;
-//      rf << i << ",";
-//      cf << j << ",";
-//      vf << nzit.value().count << ",";
-////      std::cout<<"r:"<<li<<" c:"<<lj<<" v:"<<nzit.value()<<std::endl;
-//    }
-//  }
-//
-//  rf.close();
-//  cf.close();
-//  vf.close();
-//
-//  if (parops->world_proc_rank < parops->world_procs_count - 1) {
-//    MPI_Send(&flag, 1, MPI_INT, parops->world_proc_rank + 1, 99,
-//             MPI_COMM_WORLD);
-//  }
-//
-//  MPI_Barrier(MPI_COMM_WORLD);
-#endif
-//
-  /*! Wait until data distribution is complete */
-  tp->times["start_main:dfd->wait()"] = std::chrono::system_clock::now();
-  if (!dfd->is_ready()) {
-    dfd->wait();
-  }
-  tp->times["end_main:dfd->wait()"] = std::chrono::system_clock::now();
+	/* Print start time information */
+	tp->times["start_main"] = std::chrono::system_clock::now();
+	std::time_t start_prog_time =
+		std::chrono::system_clock::to_time_t(tp->times["start_main"]);
+	print_str = "\nINFO: Program started on ";
+	print_str.append(std::ctime(&start_prog_time));
+	print_str.append("\nINFO: Job ID ").append(job_name).append("\n");
+	pretty_print_config(print_str);
+	tu.print_str(print_str);
 
-  uint64_t n_rows, n_cols;
-  n_rows = n_cols = dfd->global_count();
-  int gr_rows = parops->grid->GetGridRows();
-  int gr_cols = parops->grid->GetGridCols();
-  int gr_col_idx = parops->grid->GetRankInProcRow();
-  int gr_row_idx = parops->grid->GetRankInProcCol();
-  uint64_t avg_rows_in_grid = n_rows / gr_rows;
-  uint64_t avg_cols_in_grid = n_cols / gr_cols;
-  uint64_t row_offset = gr_row_idx * avg_rows_in_grid;  // first row in this process
-  uint64_t col_offset = gr_col_idx * avg_cols_in_grid;	// first col in this process
+	/* Read and distribute fasta data */
+	tp->times["start_main:newDFD()"] = std::chrono::system_clock::now();
+	std::shared_ptr<DistributedFastaData> dfd
+	  = std::make_shared<DistributedFastaData>(
+		input_file.c_str(), idx_map_file.c_str(), input_overlap,
+		klength, parops, tp, tu);
+	tp->times["end_main:newDFD()"] = std::chrono::system_clock::now();
 
+  	#ifndef NDEBUG
+		//  TraceUtils::print_fasta_data(fd, parops);
+  	#endif
 
-  DistributedPairwiseRunner dpr(dfd, C.seqptr(), afreq, row_offset, col_offset, parops);
-  if (!no_align) {
-    tp->times["start_main:dpr->align()"] = std::chrono::system_clock::now();
-    seqan::Blosum62 blosum62(gap_ext, gap_open);
+	if (dfd->global_count() != seq_count)
+	{
+		uint64_t final_seq_count = dfd->global_count();
+		print_str = "\nINFO: Modfied sequence count\n";
+		print_str.append("  Final sequence count: ")
+		  .append(std::to_string(final_seq_count))
+		  .append(" (").append(
+			std::to_string((((seq_count-final_seq_count) * 100.0) / seq_count)))
+		  .append("% removed)");
 
-    align_file += "_Rank_" + std::to_string(parops->world_proc_rank) + ".txt";
-    // TODO: SeqAn can't work with affine gaps for seed extension
-    seqan::Blosum62 blosum62_simple(gap_open, gap_open);
-    PairwiseFunction* pf = nullptr;
-    uint64_t local_alignments = 1;
-    if (xdrop_align) {
-      pf = new SeedExtendXdrop (blosum62, blosum62_simple, klength, xdrop, seed_count);
-      // dpr.run(pf, align_file.c_str(), proc_log_stream, log_freq);
-	  dpr.runv2(pf, align_file.c_str(), proc_log_stream, log_freq);
-      // local_alignments = static_cast<SeedExtendXdrop*>(pf)->alignments.size();
-	  local_alignments = static_cast<SeedExtendXdrop*>(pf)->nalignments;
-    } else if (full_align) {
-      pf = new FullAligner(blosum62, blosum62_simple);
-      // dpr.run(pf, align_file.c_str(), proc_log_stream, log_freq);
-	  dpr.runv2(pf, align_file.c_str(), proc_log_stream, log_freq);
-      // local_alignments = static_cast<FullAligner*>(pf)->alignments.size();
-	  local_alignments = static_cast<FullAligner*>(pf)->nalignments;
-    } else if(banded_align){
-      pf = new BandedAligner (blosum62, banded_half_width);
-      // dpr.run(pf, align_file.c_str(), proc_log_stream, log_freq);
-	  dpr.runv2(pf, align_file.c_str(), proc_log_stream, log_freq);
-      // local_alignments = static_cast<BandedAligner*>(pf)->alignments.size();
-	  local_alignments = static_cast<BandedAligner*>(pf)->nalignments;
-    }
+		seq_count = dfd->global_count();
+		print_str += "\n";
+		tu.print_str(print_str);
+	}
 
-    tp->times["end_main:dpr->align()"] = std::chrono::system_clock::now();
-    delete pf;
+	/*! Create alphabet */
+	Alphabet alph(alph_t);
+
+	/*! Generate sequences by kmers matrix */
+	std::unordered_set<pastis::Kmer, pastis::Kmer> local_kmers;
+	tp->times["start_main:genA()"] = std::chrono::system_clock::now();
+	PSpMat<pastis::MatrixEntry>::MPI_DCCols A =
+		pastis::KmerOps::generate_A(
+			seq_count,dfd, klength, kstride,
+			alph, parops, tp, local_kmers);
+	tu.print_str("Matrix A: ");
+	tu.print_str("\nLoad imbalance: " +
+				 std::to_string(A.LoadImbalance()) + "\n");
+	tp->times["end_main:genA()"] = std::chrono::system_clock::now();
+	A.PrintInfo();
+
+	// Transpose
+	auto At = A;
+	tp->times["start_main:At()"] = tp->times["end_main:genA()"];
+	At.Transpose();
+	tu.print_str("Matrix At: ");
+	At.PrintInfo();
+	tp->times["end_main:At()"] = std::chrono::system_clock::now();
+
+	// Substitute matrix
+	PSpMat<pastis::MatrixEntry>::MPI_DCCols* S = nullptr;
+	if (add_substitue_kmers)
+	{
+	  	tp->times["start_main:genS()"] = std::chrono::system_clock::now();
+	  	S = new PSpMat<pastis::MatrixEntry>::MPI_DCCols
+			(pastis::KmerOps::generate_S(klength, subk_count, alph, parops, tp,
+										 local_kmers));
+		tp->times["end_main:genS()"] = std::chrono::system_clock::now();
+		tu.print_str("Matrix S: ");
+		tu.print_str("\nLoad imbalance: " +
+					 std::to_string(S->LoadImbalance()) + "\n");
+		S->PrintInfo();
+
+		// AxS
+		tp->times["start_main:AxS()"] = tp->times["end_main:genS()"];
+		proc_log_stream << "INFO: Rank: " << parops->world_proc_rank
+						<< " starting AS" << std::endl;
+		A = Mult_AnXBn_DoubleBuff<SubKmerIntersectSR_t,
+								  pastis::MatrixEntry,
+								  PSpMat<pastis::MatrixEntry>::DCCols>(A, *S);
+		proc_log_stream << "INFO: Rank: " << parops->world_proc_rank
+						<< " done AS" << std::endl;
+		tu.print_str("Matrix AS: ");
+		tu.print_str("\nLoad imbalance: " +
+					 std::to_string(A.LoadImbalance()) + "\n");
+		A.PrintInfo();
+		tp->times["end_main:AxS()"] = std::chrono::system_clock::now();
+		delete S;
+	}
+
+	// Output matrix
+	tp->times["start_main:(AS)At()"] = std::chrono::system_clock::now();
+	proc_log_stream << "INFO: Rank: " << parops->world_proc_rank
+					<< " starting AAt" << std::endl;
+	PSpMat<pastis::CommonKmers>::MPI_DCCols C =
+		Mult_AnXBn_DoubleBuff<KmerIntersectSR_t,pastis::CommonKmers,
+							  PSpMat<pastis::CommonKmers>::DCCols>(A, At);
+	proc_log_stream << "INFO: Rank: " << parops->world_proc_rank
+					<< " done AAt" << std::endl;
+	tu.print_str(
+		"Matrix AAt: Overlaps after k-mer finding (nnz(C) - diagonal): "
+		+ std::to_string(C.getnnz() - seq_count)
+		+ "\nLoad imbalance: " + std::to_string(C.LoadImbalance()) + "\n");
+	tp->times["end_main:(AS)At()"] = std::chrono::system_clock::now();
+	tu.print_str("Matrix B, i.e AAt or ASAt: ");
+	C.PrintInfo();
+
+	// the output matrix may be non-symmetric when substitutes are used
+	if (add_substitue_kmers)
+	{
+		auto CT = C;
+		CT.Transpose();
+		CT.Apply([] (pastis::CommonKmers &arg)
+				 {
+					 std::swap(arg.first.first, arg.first.second);
+					 std::swap(arg.second.first, arg.second.second);
+					 return arg;
+				 });
+		C += CT;
+
+		tu.print_str("Matrix B, i.e AAt or ASAt: (after sym) ");
+		C.PrintInfo();
+	}
+	tu.print_str("Matrix C: ");
+	tu.print_str("\nLoad imbalance: " +
+				 std::to_string(C.LoadImbalance()) + "\n");
+
+	// -------------------------------------------------------------------------
+
+	// Wait until data distribution is complete
+	tp->times["start_main:dfd->wait()"] = std::chrono::system_clock::now();
+	if (!dfd->is_ready())
+	  	dfd->wait();
+	tp->times["end_main:dfd->wait()"] = std::chrono::system_clock::now();
+
+	uint64_t	n_rows			 = dfd->global_count();
+	uint64_t	n_cols			 = dfd->global_count();
+	int			gr_rows			 = parops->grid->GetGridRows();
+  	int			gr_cols			 = parops->grid->GetGridCols();
+	int			gr_col_idx		 = parops->grid->GetRankInProcRow();
+  	int			gr_row_idx		 = parops->grid->GetRankInProcCol();
+	uint64_t	avg_rows_in_grid = n_rows / gr_rows;
+	uint64_t	avg_cols_in_grid = n_cols / gr_cols;
+	uint64_t	row_offset		 = gr_row_idx * avg_rows_in_grid;
+	uint64_t	col_offset		 = gr_col_idx * avg_cols_in_grid;
+
+	// Start pairwise runner
+	DistributedPairwiseRunner dpr(dfd, C.seqptr(), &C, afreq,
+								  row_offset, col_offset, parops);
+	if (!no_align)
+	{
+		tp->times["start_main:dpr->align()"] = std::chrono::system_clock::now();
+		seqan::Blosum62 blosum62(gap_ext, gap_open);
+		align_file += "_Rank_" +
+			std::to_string(parops->world_proc_rank) + ".txt";
+		// TODO: SeqAn can't work with affine gaps for seed extension
+		seqan::Blosum62 blosum62_simple(gap_open, gap_open);
+		PairwiseFunction* pf = nullptr;
+		uint64_t local_alignments = 0;
+		if (xdrop_align)
+		{
+			pf = new SeedExtendXdrop (blosum62, blosum62_simple,
+									  klength, xdrop, seed_count);
+			dpr.run_batch(pf, align_file.c_str(), proc_log_stream, log_freq,
+						  ckthr, mosthr * klength, tu);
+			local_alignments = static_cast<SeedExtendXdrop*>(pf)->nalignments;
+		}
+		else if (full_align)
+		{
+			pf = new FullAligner(blosum62, blosum62_simple);
+			dpr.run_batch(pf, align_file.c_str(), proc_log_stream, log_freq,
+						  ckthr, mosthr * klength, tu);
+			local_alignments = static_cast<FullAligner*>(pf)->nalignments;
+		}
+		else if(banded_align)
+		{
+			pf = new BandedAligner (blosum62, banded_half_width);
+			dpr.run_batch(pf, align_file.c_str(), proc_log_stream, log_freq,
+						  ckthr, mosthr * klength, tu);
+			local_alignments = static_cast<BandedAligner*>(pf)->nalignments;
+		}
+
+		tp->times["end_main:dpr->align()"] = std::chrono::system_clock::now();
+		delete pf;
+		uint64_t total_alignments = 0;
+		MPI_Reduce(&local_alignments, &total_alignments, 1,
+				   MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+		tu.print_str("total #alignments: " +
+					 std::to_string(total_alignments) + "\n");
+	}
+
+	tp->times["start_main:dpr->write_overlaps()"] =
+		std::chrono::system_clock::now();
+	if (write_overlaps)
+	  	dpr.write_overlaps(overlap_file.c_str());
+	tp->times["end_main:dpr->write_overlaps()"] =
+		std::chrono::system_clock::now();
+
+	tp->times["end_main"] = std::chrono::system_clock::now();
+
+	std::time_t end_prog_time = std::chrono::system_clock::to_time_t(
+	  tp->times["end_main"]);
+	print_str = "INFO: Program ended on ";
+	print_str.append(std::ctime(&end_prog_time));
+	tu.print_str(print_str);
+	tu.print_str(tp->to_string());
+
+	proc_log_stream.close();
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	parops->teardown_parallelism();
 	
-    uint64_t total_alignments = 0;
-    MPI_Reduce(&local_alignments, &total_alignments, 1, MPI_UINT64_T, MPI_SUM, 0,
-               MPI_COMM_WORLD);
-
-    if (is_print_rank) {
-      std::cout << "Final alignment (L+U-D) count: " << 2 * total_alignments
-                << std::endl;
-    }
-  }
-
-  tp->times["start_main:dpr->write_overlaps()"] = std::chrono::system_clock::now();
-  if (write_overlaps){
-    dpr.write_overlaps(overlap_file.c_str());
-  }
-  tp->times["end_main:dpr->write_overlaps()"] = std::chrono::system_clock::now();
-
-  tp->times["end_main"] = std::chrono::system_clock::now();
-
-  std::time_t end_prog_time = std::chrono::system_clock::to_time_t(
-    tp->times["end_main"]);
-  print_str = "INFO: Program ended on ";
-  print_str.append(std::ctime(&end_prog_time));
-  tu.print_str(print_str);
-  tu.print_str(tp->to_string());
-
-  proc_log_stream.close();
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  parops->teardown_parallelism();
-  return 0;
+	return 0;
 }
+
 
 int parse_args(int argc, char **argv) {
   cxxopts::Options options("PASTIS",
@@ -446,7 +415,11 @@ int parse_args(int argc, char **argv) {
     (CMD_OPTION_LOG_FREQ, CMD_OPTION_DESCRIPTION_LOG_FREQ,
      cxxopts::value<int>())
     (CMD_OPTION_AF_FREQ, CMD_OPTION_DESCRIPTION_AF_FREQ,
-     cxxopts::value<int>());
+     cxxopts::value<int>())
+	(CMD_OPTION_CKTHR, CMD_OPTION_DESCRIPTION_CKTHR,
+     cxxopts::value<int>())
+	(CMD_OPTION_MOSTHR, CMD_OPTION_DESCRIPTION_MOSTHR,
+     cxxopts::value<float>());
 
   auto result = options.parse(argc, argv);
 
@@ -565,14 +538,14 @@ int parse_args(int argc, char **argv) {
     subk_count = result[CMD_OPTION_SUBS].as<int>();
   }
 
-  boost::uuids::random_generator gen;
-  boost::uuids::uuid id = gen();
-  if (result.count(CMD_OPTION_JOB_NAME_PREFIX)) {
-    std::string tmp = result[CMD_OPTION_JOB_NAME_PREFIX].as<std::string>();
-    job_name = tmp + "_" +  boost::uuids::to_string(id);
-  } else {
-    job_name = boost::uuids::to_string(id);
-  }
+  // boost::uuids::random_generator gen;
+  // boost::uuids::uuid id = gen();
+  // if (result.count(CMD_OPTION_JOB_NAME_PREFIX)) {
+  //   std::string tmp = result[CMD_OPTION_JOB_NAME_PREFIX].as<std::string>();
+  //   job_name = tmp + "_" +  boost::uuids::to_string(id);
+  // } else {
+  //   job_name = boost::uuids::to_string(id);
+  // }
 
   if (result.count(CMD_OPTION_LOG_FREQ)) {
     log_freq = result[CMD_OPTION_LOG_FREQ].as<int>();
@@ -580,6 +553,14 @@ int parse_args(int argc, char **argv) {
 
   if (result.count(CMD_OPTION_AF_FREQ)) {
     afreq = result[CMD_OPTION_AF_FREQ].as<int>();
+  }
+
+  if (result.count(CMD_OPTION_CKTHR)) {
+     ckthr = result[CMD_OPTION_CKTHR].as<int>();
+  }
+
+  if (result.count(CMD_OPTION_MOSTHR)) {
+     mosthr = result[CMD_OPTION_MOSTHR].as<float>();
   }
 
   return 0;
@@ -608,7 +589,9 @@ void pretty_print_config(std::string &append_to) {
     "Banded align (--ba)",
     "Index map (--idxmap)",
     "Alphabet (--alph)",
-    "Use substitute kmers (--subs)"
+    "Use substitute kmers (--subs)",
+	"Common k-mer threshold (--ckthr)",
+	"Max overlap score threshold (--mosthr)"
   };
 
 
@@ -632,6 +615,8 @@ void pretty_print_config(std::string &append_to) {
     !idx_map_file.empty() ? idx_map_file : "None",
     std::to_string(alph_t),
     bool_to_str(add_substitue_kmers) + (add_substitue_kmers ? " | sub kmers: " + std::to_string(subk_count) : ""),
+	std::to_string(ckthr),
+	std::to_string(mosthr),
   };
 
   ushort max_length = 0;

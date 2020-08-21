@@ -60,3 +60,9 @@ const char *CMD_OPTION_DESCRIPTION_LOG_FREQ = "Log frequency.";
 
 const char *CMD_OPTION_AF_FREQ = "afreq";
 const char *CMD_OPTION_DESCRIPTION_AF_FREQ = "Alignment write frequency in number of lines.";
+
+const char *CMD_OPTION_CKTHR = "ckthr";
+const char *CMD_OPTION_DESCRIPTION_CKTHR = "Perform alignments that have more than this number of common k-mers.";
+
+const char *CMD_OPTION_MOSTHR = "mosthr";
+const char *CMD_OPTION_DESCRIPTION_MOSTHR = "Perform alignments that have more than this overlap score per base.";

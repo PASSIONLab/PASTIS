@@ -249,6 +249,11 @@ SeedExtendXdrop::apply_batch
 			seqan::AlignmentStats &stats = ai[i].stats;			
 			double alen_minus_gapopens =
 				stats.alignmentLength - stats.numGapOpens;
+			pastis::CommonKmers cks = mattuples.numvalue(lids[i]);
+			
+			// if (std::max((alen_minus_gapopens / ai[i].seq_h_length),
+			// 			 (alen_minus_gapopens / ai[i].seq_v_length)) >= 0.7 &&
+			// 	stats.alignmentIdentity >= 30)
 			ss << ai[i].seq_h_g_idx << ","
 			   << ai[i].seq_v_g_idx  << ","
 			   << stats.alignmentIdentity << ","
@@ -258,7 +263,8 @@ SeedExtendXdrop::apply_batch
 			   << ai[i].seq_v_seed_length << ","
 			   << stats.numGapOpens << ","
 			   << (alen_minus_gapopens / ai[i].seq_h_length) << ","
-			   << (alen_minus_gapopens / ai[i].seq_v_length)
+			   << (alen_minus_gapopens / ai[i].seq_v_length) << ","
+			   << cks.count
 			   << "\n";
 		}
 
@@ -277,3 +283,159 @@ SeedExtendXdrop::apply_batch
 
 	return;
 }
+
+
+
+// void
+// SeedExtendXdrop::apply_batch_sc
+// (
+//     seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsh,
+// 	seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsv,
+// 	uint64_t *lids,
+// 	uint64_t col_offset,
+// 	uint64_t row_offset,
+// 	PSpMat<pastis::CommonKmers>::Tuples &mattuples,
+// 	std::ofstream &afs,
+// 	std::ofstream &lfs
+// )
+// {
+// 	seqan::ExecutionPolicy<seqan::Parallel, seqan::Vectorial> exec_policy;
+
+// 	int numThreads = 1;
+// 	#ifdef THREADED
+// 	#pragma omp parallel
+//     {
+//       	numThreads = omp_get_num_threads();
+//     }
+// 	#endif
+
+// 	uint64_t npairs = seqan::length(seqsh);
+// 	setNumThreads(exec_policy, numThreads);
+
+// 	lfs << "processing batch of size " << npairs << " with "
+// 		<< numThreads << " threads " << std::endl;
+
+// 	// for multiple seeds we store the seed with the highest identity
+// 	seqan::String<int16_t> scores;
+// 	seqan::String<int16_t> lens_h;
+// 	seqan::String<int16_t> lens_v;
+// 	resize(scores, npairs, seqan::Exact{});
+// 	resize(lens_h, npairs, seqan::Exact{});
+// 	resize(lens_v, npairs, seqan::Exact{});
+
+// 	for (int count = 0; count < seed_count; ++count)
+// 	{
+// 		auto start_time = std::chrono::system_clock::now();
+
+// 		seqan::StringSet<seqan::Peptide> seqsh_ex;
+// 		seqan::StringSet<seqan::Peptide> seqsv_ex;
+// 		resize(seqsh_ex, npairs, seqan::Exact{});
+// 		resize(seqsv_ex, npairs, seqan::Exact{});
+		
+// 		// extend the current seed and form a new gaps object
+// 		#pragma omp parallel for
+// 		for (uint64_t i = 0; i < npairs; ++i)
+// 		{
+// 			pastis::CommonKmers &cks = mattuples.numvalue(lids[i]);
+// 			ushort l_row_seed_start_offset =
+// 				(count == 0) ? cks.first.first : cks.second.first;
+// 			ushort l_col_seed_start_offset =
+// 				(count == 0) ? cks.first.second : cks.second.second;
+
+// 			TSeed seed(l_col_seed_start_offset, l_row_seed_start_offset,
+// 					   seed_length);
+// 			extendSeed(seed, seqsh[i], seqsv[i], seqan::EXTEND_BOTH,
+// 					   scoring_scheme_simple, xdrop, seqan::GappedXDrop());
+// 			seqsh_ex[i] = infix(seqsh[i], beginPositionH(seed),
+// 								endPositionH(seed));
+// 			seqsv_ex[i] = infix(seqsv[i], beginPositionV(seed),
+// 								endPositionV(seed));
+// 		}
+
+// 		auto end_time = std::chrono::system_clock::now();
+//     	add_time("XA:extend_seed", (ms_t(end_time - start_time)).count());
+
+		
+// 		start_time = std::chrono::system_clock::now();
+
+// 		// alignment
+// 		seqan::String<int16_t> scores_cur =
+// 			globalAlignmentScore(exec_policy, seqsh_ex, seqsv_ex,
+// 								 scoring_scheme);
+		
+// 		end_time = std::chrono::system_clock::now();
+//     	add_time("XA:global_alignment", (ms_t(end_time - start_time)).count());
+
+
+// 		start_time = std::chrono::system_clock::now();
+		
+// 		// stats
+// 		if (count == 0)			// overwrite in the first seed
+// 		{
+// 			#pragma omp parallel for
+// 			for (uint64_t i = 0; i < npairs; ++i)
+// 			{
+// 				scores[i] = scores_cur[i];
+// 				lens_h[i] = seqan::length(seqsh_ex[i]);
+// 				lens_v[i] = seqan::length(seqsv_ex[i]);
+// 			}
+// 		}
+// 		else
+// 		{
+// 			#pragma omp parallel for
+// 			for (uint64_t i = 0; i < npairs; ++i)
+// 			{
+// 				if (scores_cur[i] > scores[i])
+// 				{
+// 					scores[i] = scores_cur[i];
+// 					lens_h[i] = seqan::length(seqsh_ex[i]);
+// 					lens_v[i] = seqan::length(seqsv_ex[i]);
+// 				}
+// 			}
+// 		}
+
+// 		end_time = std::chrono::system_clock::now();
+//     	add_time("XA:compute_stats", (ms_t(end_time - start_time)).count());
+// 	}
+	
+
+// 	auto start_time = std::chrono::system_clock::now();
+
+// 	// stats dump
+// 	#pragma omp parallel
+// 	{
+// 		std::stringstream ss;
+
+// 		#pragma omp for
+// 		for (uint64_t i = 0; i < npairs; ++i)
+// 		{
+// 			if (scores[i] > 0)
+// 			{
+// 				int len_seqh = seqan::length(seqsh[i]);
+// 				int len_seqv = seqan::length(seqsv[i]);
+// 				ss << (col_offset + mattuples.colindex(lids[i])) << ","
+// 				   << (row_offset + mattuples.rowindex(lids[i]))  << ","
+// 				   << scores[i] << ","
+// 				   << len_seqh << ","
+// 				   << len_seqv << ","
+// 				   << ((double)scores[i]/(double)len_seqh) << ","
+// 				   << ((double)scores[i]/(double)len_seqv) << ","
+// 				   << ((double)scores[i]/(double)lens_h[i]) << ","
+// 				   << ((double)scores[i]/(double)lens_v[i])
+// 				   << "\n";
+// 			}
+// 		}
+
+// 		#pragma omp critical
+// 		{
+// 			afs << ss.str();
+// 			afs.flush();
+// 		}
+// 	}
+
+// 	auto end_time = std::chrono::system_clock::now();
+//   	add_time("XA:string_op",
+// 			 (ms_t(end_time - start_time)).count());
+
+// 	return;
+// }

@@ -67,4 +67,10 @@ extern const char *CMD_OPTION_DESCRIPTION_LOG_FREQ;
 extern const char *CMD_OPTION_AF_FREQ;
 extern const char *CMD_OPTION_DESCRIPTION_AF_FREQ;
 
+extern const char *CMD_OPTION_CKTHR;
+extern const char *CMD_OPTION_DESCRIPTION_CKTHR;
+
+extern const char *CMD_OPTION_MOSTHR;
+extern const char *CMD_OPTION_DESCRIPTION_MOSTHR;
+
 #endif //LBL_DAL_CONSTANTS_H
