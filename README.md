@@ -28,20 +28,24 @@ works, and perform publicly and display publicly, and to permit others to do so.
 
 3. CMake 3.11 or above.
 
-4. Boost C++ Libraries.
-
 ## Dependencies
-    
-1. CombBLAS.
-  * Download or clone CombBLAS from `https://github.com/PASSIONLab/CombBLAS.git`.
-  * Export the path to this directory as an environment variable `COMBBLAS_HOME`.
-   ```
-      git clone https://github.com/PASSIONLab/CombBLAS.git
-      export COMBBLAS_HOME=$PWD
-   ```
+
+1. PASTIS requires CombBLAS and SeqAn libraries. These are included within PASTIS as
+submodules. To get them all, use:
+```
+git clone --recursive https://github.com/PASSIONLab/PASTIS
+```
+
+If you already happen to have those libraries, they are needed within the PASTIS
+directory. So, link the installation directories under names "CombBLAS" and
+"seqan". Note that PASTIS uses master branch of CombBLAS and develop branch of
+SeqAn.
+
+
+2. Build CombBLAS:
   * The following commands can be used to build and install CombBLAS:
   ```
-    cd $COMBBLAS_HOME/CombBLAS
+    cd CombBLAS
     mkdir build
     mkdir install
     cd build
@@ -49,21 +53,7 @@ works, and perform publicly and display publicly, and to permit others to do so.
     make -j4
     make install         
   ```
-3. SeqAn.
-  * Download SeqAn `2.4.0` from `https://github.com/seqan/seqan/releases/tag/seqan-v2.4.0` or clone the repository using the release tag as follows:
-   ```
-      git clone --branch seqan-v2.4.0 https://github.com/seqan/seqan.git
-   ```
-  * Create an environment variable, `SEQAN_HOME`, pointing to it:
-   ```
-      export SEQAN_HOME=/path/to/seqan
-   ```
-  * Checkout to `develop` branch of SeqAn `2.4.0`:
-   ```
-      cd $SEQAN_HOME
-      git checkout develop
-   ```
-  * This is a header only library, so there's no need to build it.
+3. SeqAn is a header only library, so there's no need to build it.
   
 ## Build and Test PASTIS
 
@@ -100,6 +90,12 @@ The parameters and options of PASTIS are as follows:
 - ```--ba <integer>```: Banded alignment with the indicated band size.
 - ```--af <string>```: Output file to write alignment information. 
 - ```--idxmap <string>```: Output file for input sequences to ids used in PASTIS.
+- ```--ckthr <integer>```: Common k-mer threshold. The sequence pairs that have
+  less or equal to this number of common k-mers are not aligned. ```[default: 0]```
+- ```--mosthr <float>```: Maximum overlap score threshold. The maximum overlap
+  score is given by the highest overlap region of k-mers divided by the number
+  k-mer length. The pairs whose such score is less than or equal to ```mosthr```
+  are not aligned. ```[default: 0]```
 
 
 ## Notes for running PASTIS on NERSC Cori
@@ -107,7 +103,6 @@ The parameters and options of PASTIS are as follows:
 The necessary modules for running PASTIS on Cori are as follows:
 * module swap PrgEnv-intel PrgEnv-gnu
 * module load cmake
-* module load boost
 
 Make sure to pass the correct MPI wrappers to successfully run the tests:
 * cmake -DMPIEXEC_EXECUTABLE=/usr/bin/srun ..
