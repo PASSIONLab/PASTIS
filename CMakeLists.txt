@@ -3,10 +3,10 @@ project(pastis)
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(
-	$ENV{SEQAN_HOME}/include 
-	$ENV{COMBBLAS_HOME}/CombBLAS/install/include)
+	${PROJECT_SOURCE_DIR}/seqan/include 
+	${PROJECT_SOURCE_DIR}/CombBLAS/install/include)
 	# possibly add path to boost library (not necessary on Cori, just type 'module load boost')
-link_directories($ENV{COMBBLAS_HOME}/CombBLAS/install/lib)
+link_directories(${PROJECT_SOURCE_DIR}/CombBLAS/install/lib)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
