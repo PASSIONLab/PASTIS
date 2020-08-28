@@ -310,8 +310,8 @@ main
 	{
 		tp->times["start_main:dpr->align()"] = std::chrono::system_clock::now();
 		seqan::Blosum62 blosum62(gap_ext, gap_open);
-		align_file += "_Rank_" +
-			std::to_string(parops->world_proc_rank) + ".txt";
+		// align_file += "_Rank_" +
+		// 	std::to_string(parops->world_proc_rank) + ".txt";
 		// TODO: SeqAn can't work with affine gaps for seed extension
 		seqan::Blosum62 blosum62_simple(gap_open, gap_open);
 		PairwiseFunction* pf = nullptr;
@@ -320,21 +320,21 @@ main
 		{
 			pf = new SeedExtendXdrop (blosum62, blosum62_simple,
 									  klength, xdrop, seed_count);
-			dpr.run_batch(pf, align_file.c_str(), proc_log_stream, log_freq,
+			dpr.run_batch(pf, align_file, proc_log_stream, log_freq,
 						  ckthr, mosthr * klength, tu);
 			local_alignments = static_cast<SeedExtendXdrop*>(pf)->nalignments;
 		}
 		else if (full_align)
 		{
 			pf = new FullAligner(blosum62, blosum62_simple);
-			dpr.run_batch(pf, align_file.c_str(), proc_log_stream, log_freq,
+			dpr.run_batch(pf, align_file, proc_log_stream, log_freq,
 						  ckthr, mosthr * klength, tu);
 			local_alignments = static_cast<FullAligner*>(pf)->nalignments;
 		}
 		else if(banded_align)
 		{
 			pf = new BandedAligner (blosum62, banded_half_width);
-			dpr.run_batch(pf, align_file.c_str(), proc_log_stream, log_freq,
+			dpr.run_batch(pf, align_file, proc_log_stream, log_freq,
 						  ckthr, mosthr * klength, tu);
 			local_alignments = static_cast<BandedAligner*>(pf)->nalignments;
 		}

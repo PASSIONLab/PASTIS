@@ -205,11 +205,12 @@ void DistributedPairwiseRunner::run(PairwiseFunction *pf, const char* file, std:
 }
 
 
+
 void
 DistributedPairwiseRunner::run_batch
 (
     PairwiseFunction	*pf,
-	const char*			 file,
+	const std::string	&aln_file,
 	std::ofstream&		 lfs,
 	int					 log_freq,
 	int					 ckthr,
@@ -218,15 +219,29 @@ DistributedPairwiseRunner::run_batch
 	bool				 score_only
 )
 {
-	std::ofstream af_stream;
-	af_stream.open(file);
-
 	uint64_t	local_nnz_count = spSeq->getnnz();
-	int			batch_size		= 1e8;
+	int			batch_size		= 1e9;
 	int			batch_cnt		= (local_nnz_count / batch_size) + 1;
 	int			batch_idx		= 0;
 	uint64_t	nalignments		= 0;
-	PSpMat<pastis::CommonKmers>::Tuples mattuples(*spSeq);
+
+	// @TODO threaded
+	PSpMat<pastis::CommonKmers>::ref_tuples *mattuples =
+		new PSpMat<pastis::CommonKmers>::ref_tuples[local_nnz_count];
+	uint64_t k = 0;
+	auto dcsc = spSeq->GetDCSC();
+	for (uint64_t i = 0; i < dcsc->nzc; ++i)
+	{
+		for (uint64_t j = dcsc->cp[i]; j < dcsc->cp[i+1]; ++j)
+		{
+			std::get<0>(mattuples[k]) = dcsc->ir[j];
+			std::get<1>(mattuples[k]) = dcsc->jc[i];
+			std::get<2>(mattuples[k]) = &(dcsc->numx[j]);
+			++k;
+		}
+	}
+
+	assert (k == local_nnz_count);
 		
 	lfs << "Local nnz count: " << local_nnz_count << std::endl;
 
@@ -238,13 +253,6 @@ DistributedPairwiseRunner::run_batch
     }
 	#endif
 
-	std::vector<std::stringstream> ss(numThreads);
-	if(parops->world_proc_rank == 0)
-		af_stream << "g_col_idx,g_row_idx,pid,col_seq_len,row_seq_len,"
-			"col_seq_align_len,row_seq_align_len, num_gap_opens,"
-			"col_seq_len_coverage,row_seq_len_coverage,common_count"
-				  << std::endl;
-
 	uint64_t *algn_cnts = new uint64_t[numThreads + 1];
 	uint64_t nelims_ckthr = 0, nelims_mosthr = 0, nelims_both = 0;
 	while (batch_idx < batch_cnt)
@@ -252,6 +260,11 @@ DistributedPairwiseRunner::run_batch
 		uint64_t beg = batch_idx * batch_size;
 		uint64_t end = ((batch_idx + 1) * batch_size > local_nnz_count) ?
 			local_nnz_count : ((batch_idx + 1) * batch_size);
+
+		tu.print_str("batch idx " + std::to_string(batch_idx) + "/" +
+					 std::to_string(batch_cnt) + " [" +
+					 std::to_string(beg) + ", " +
+					 std::to_string(end) + ")\n");
 
 		memset(algn_cnts, 0, sizeof(*algn_cnts) * (numThreads + 1));
 
@@ -272,13 +285,20 @@ DistributedPairwiseRunner::run_batch
 			#pragma omp for schedule(static, 1000)
 			for (uint64_t i = beg; i < end; ++i)
 			{
-				auto				l_row_idx = mattuples.rowindex(i);
-				auto				l_col_idx = mattuples.colindex(i);
-				uint64_t			g_col_idx = l_col_idx + col_offset;
-				uint64_t			g_row_idx = l_row_idx + row_offset;
-				pastis::CommonKmers cks		  = mattuples.numvalue(i);
-				if ((cks.count > ckthr) &&
-					(cks.score > mosthr) &&
+				// auto				l_row_idx = mattuples.rowindex(i);
+				// auto				l_col_idx = mattuples.colindex(i);
+				// uint64_t			g_col_idx = l_col_idx + col_offset;
+				// uint64_t			g_row_idx = l_row_idx + row_offset;
+				// pastis::CommonKmers cks		  = mattuples.numvalue(i);
+
+				auto				 l_row_idx = std::get<0>(mattuples[i]);
+				auto				 l_col_idx = std::get<1>(mattuples[i]);
+				uint64_t			 g_col_idx = l_col_idx + col_offset;
+				uint64_t			 g_row_idx = l_row_idx + row_offset;
+				pastis::CommonKmers *cks	   = std::get<2>(mattuples[i]);
+				
+				if ((cks->count > ckthr) &&
+					(cks->score > mosthr) &&
 					(l_col_idx >= l_row_idx) &&
 					(l_col_idx != l_row_idx || g_col_idx > g_row_idx))
 					++algn_cnt;
@@ -287,11 +307,11 @@ DistributedPairwiseRunner::run_batch
 				if ((l_col_idx >= l_row_idx) &&
 					(l_col_idx != l_row_idx || g_col_idx > g_row_idx))
 				{
-					if (cks.count <= ckthr)
+					if (cks->count <= ckthr)
 						++nelims_ckthr_cur;
-					if (cks.score <= mosthr)
+					if (cks->score <= mosthr)
 						++nelims_mosthr_cur;
-					if (cks.count <= ckthr && cks.score <= mosthr)
+					if (cks->count <= ckthr && cks->score <= mosthr)
 						++nelims_both_cur;
 				}
 			}
@@ -338,13 +358,20 @@ DistributedPairwiseRunner::run_batch
 			#pragma omp for schedule(static, 1000)
 			for (uint64_t i = beg; i < end; ++i)
 			{
-				auto				l_row_idx = mattuples.rowindex(i);
-				auto				l_col_idx = mattuples.colindex(i);
-				uint64_t			g_col_idx = l_col_idx + col_offset;
-				uint64_t			g_row_idx = l_row_idx + row_offset;
-				pastis::CommonKmers cks		  = mattuples.numvalue(i);
-				if ((cks.count > ckthr) &&
-					(cks.score > mosthr) &&
+				// auto				l_row_idx = mattuples.rowindex(i);
+				// auto				l_col_idx = mattuples.colindex(i);
+				// uint64_t			g_col_idx = l_col_idx + col_offset;
+				// uint64_t			g_row_idx = l_row_idx + row_offset;
+				// pastis::CommonKmers cks		  = mattuples.numvalue(i);
+
+				auto				 l_row_idx = std::get<0>(mattuples[i]);
+				auto				 l_col_idx = std::get<1>(mattuples[i]);
+				uint64_t			 g_col_idx = l_col_idx + col_offset;
+				uint64_t			 g_row_idx = l_row_idx + row_offset;
+				pastis::CommonKmers *cks	   = std::get<2>(mattuples[i]);
+				
+				if ((cks->count > ckthr) &&
+					(cks->score > mosthr) &&
 					(l_col_idx >= l_row_idx) &&
 					(l_col_idx != l_row_idx || g_col_idx > g_row_idx))
 				{
@@ -355,6 +382,8 @@ DistributedPairwiseRunner::run_batch
 					lids[algn_idx] = i;
 					++algn_idx;
 				}
+
+				cks->score = 0; // will use it for pruning purposes
 			}
 		}
 		
@@ -369,16 +398,12 @@ DistributedPairwiseRunner::run_batch
 		// 					   mattuples, af_stream, lfs);
 		// else
 		pf->apply_batch(seqsh, seqsv, lids, col_offset, row_offset,
-						mattuples, af_stream, lfs);
+						mattuples, lfs);
 		
 		
 		delete [] lids;
 		++batch_idx;
 	}
-
-
-	af_stream.flush();
-  	af_stream.close();
 
 	pf->nalignments = nalignments;
 	pf->print_avg_times(parops, lfs);
@@ -411,8 +436,17 @@ DistributedPairwiseRunner::run_batch
 				 std::to_string(nelims_ckthr_tot+nelims_mosthr_tot-
 								nelims_both_tot) + "\n");
 
+	// prune pairs that do not meet coverage criteria
+	std::string outfile = aln_file + std::string("-pruned-C.mtx");
+	auto elim_cov = [] (pastis::CommonKmers &ck)
+		{return ck.score == 0;};
+	gmat->Prune(elim_cov);
+	gmat->ParallelWriteMM(outfile, false, pastis::CkOutputHandler());
+	tu.print_str("nnzs in the pruned matrix " +
+				 std::to_string(gmat->getnnz()) + "\n");
+	
 	delete [] algn_cnts;
-
+	delete [] mattuples;
 
 	return;
 }

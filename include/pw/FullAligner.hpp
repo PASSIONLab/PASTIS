@@ -27,9 +27,10 @@ public:
 			   uint64_t *lids,
 			   uint64_t col_offset,
 			   uint64_t row_offset,
-			   PSpMat<pastis::CommonKmers>::Tuples &mattuples,
-			   std::ofstream &afs,
-			   std::ofstream &lfs) override;
+			   PSpMat<pastis::CommonKmers>::ref_tuples *mattuples,
+			   std::ofstream &lfs,
+			   double thr_cov = 0.7,
+			   int thr_ani = 30) override;
 
   // void
   // apply_batch_sc (seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsh,

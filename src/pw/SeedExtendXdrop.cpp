@@ -118,12 +118,13 @@ SeedExtendXdrop::apply_batch
 (
     seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsh,
 	seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsv,
-	uint64_t *lids,
-	uint64_t col_offset,
-	uint64_t row_offset,
-	PSpMat<pastis::CommonKmers>::Tuples &mattuples,
-	std::ofstream &afs,
-	std::ofstream &lfs
+	uint64_t								*lids,
+	uint64_t								 col_offset,
+	uint64_t								 row_offset,
+	PSpMat<pastis::CommonKmers>::ref_tuples *mattuples,
+	std::ofstream							&lfs,
+	double									 thr_cov,
+	int										 thr_ani
 )
 {
 	seqan::ExecutionPolicy<seqan::Parallel, seqan::Vectorial> exec_policy;
@@ -159,11 +160,11 @@ SeedExtendXdrop::apply_batch
 		#pragma omp parallel for
 		for (uint64_t i = 0; i < npairs; ++i)
 		{
-			pastis::CommonKmers &cks = mattuples.numvalue(lids[i]);
+			pastis::CommonKmers *cks = std::get<2>(mattuples[lids[i]]);
 			ushort l_row_seed_start_offset =
-				(count == 0) ? cks.first.first : cks.second.first;
+				(count == 0) ? cks->first.first : cks->second.first;
 			ushort l_col_seed_start_offset =
-				(count == 0) ? cks.first.second : cks.second.second;
+				(count == 0) ? cks->first.second : cks->second.second;
 
 			TSeed seed(l_col_seed_start_offset, l_row_seed_start_offset,
 					   seed_length);
@@ -209,8 +210,8 @@ SeedExtendXdrop::apply_batch
 				ai[i].seq_v_length = seqan::length(seqan::source(seqsv[i]));
 				ai[i].seq_h_seed_length = seedlens[i].first;
 				ai[i].seq_v_seed_length = seedlens[i].second;
-				ai[i].seq_h_g_idx = col_offset + mattuples.colindex(lids[i]);
-    			ai[i].seq_v_g_idx = row_offset + mattuples.rowindex(lids[i]);
+				ai[i].seq_h_g_idx = col_offset + std::get<1>(mattuples[lids[i]]);
+    			ai[i].seq_v_g_idx = row_offset + std::get<0>(mattuples[lids[i]]);
 			}
 		}
 		else
@@ -238,40 +239,25 @@ SeedExtendXdrop::apply_batch
 
 	auto start_time = std::chrono::system_clock::now();
 
-	// stats dump
+	// stats
 	#pragma omp parallel
 	{
-		std::stringstream ss;
-
 		#pragma omp for
 		for (uint64_t i = 0; i < npairs; ++i)
 		{
 			seqan::AlignmentStats &stats = ai[i].stats;			
 			double alen_minus_gapopens =
 				stats.alignmentLength - stats.numGapOpens;
-			pastis::CommonKmers cks = mattuples.numvalue(lids[i]);
-			
-			// if (std::max((alen_minus_gapopens / ai[i].seq_h_length),
-			// 			 (alen_minus_gapopens / ai[i].seq_v_length)) >= 0.7 &&
-			// 	stats.alignmentIdentity >= 30)
-			ss << ai[i].seq_h_g_idx << ","
-			   << ai[i].seq_v_g_idx  << ","
-			   << stats.alignmentIdentity << ","
-			   << ai[i].seq_h_length << ","
-			   << ai[i].seq_v_length << ","
-			   << ai[i].seq_h_seed_length << ","
-			   << ai[i].seq_v_seed_length << ","
-			   << stats.numGapOpens << ","
-			   << (alen_minus_gapopens / ai[i].seq_h_length) << ","
-			   << (alen_minus_gapopens / ai[i].seq_v_length) << ","
-			   << cks.count
-			   << "\n";
-		}
 
-		#pragma omp critical
-		{
-			afs << ss.str();
-			afs.flush();
+			// only keep alignments that meet coverage and ani criteria
+			if (std::max((alen_minus_gapopens / ai[i].seq_h_length),
+						 (alen_minus_gapopens / ai[i].seq_v_length)) >= thr_cov &&
+				stats.alignmentIdentity >= thr_ani)
+			{
+				pastis::CommonKmers *cks = std::get<2>(mattuples[lids[i]]);
+				cks->score_aln = (float)stats.alignmentIdentity / 100.0f;
+				cks->score = 1;	// keep this
+			}
 		}
 	}
 

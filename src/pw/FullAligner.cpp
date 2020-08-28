@@ -75,12 +75,13 @@ FullAligner::apply_batch
 (
     seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsh,
 	seqan::StringSet<seqan::Gaps<seqan::Peptide>> &seqsv,
-	uint64_t *lids,
-	uint64_t col_offset,
-	uint64_t row_offset,
-	PSpMat<pastis::CommonKmers>::Tuples &mattuples,
-	std::ofstream &afs,
-	std::ofstream &lfs
+	uint64_t								*lids,
+	uint64_t								 col_offset,
+	uint64_t								 row_offset,
+	PSpMat<pastis::CommonKmers>::ref_tuples *mattuples,
+	std::ofstream							&lfs,
+	double									 thr_cov,
+	int										 thr_ani
 )
 {
 	seqan::ExecutionPolicy<seqan::Parallel, seqan::Vectorial> exec_policy;
@@ -115,49 +116,30 @@ FullAligner::apply_batch
   	add_time("FA:local_alignment", (ms_t(end_time - start_time)).count());
 
 	start_time = std::chrono::system_clock::now();
-	
+
 	// stats
 	#pragma omp parallel
 	{
-		seqan::AlignmentStats	stats;
-		std::stringstream		ss;
-
+		seqan::AlignmentStats stats;
+		
 		#pragma omp for
 		for (uint64_t i = 0; i < npairs; ++i)
 		{
 			computeAlignmentStats(stats, seqsh[i], seqsv[i], scoring_scheme);
-
-			pastis::CommonKmers cks = mattuples.numvalue(lids[i]);
-			
 			double alen_minus_gapopens =
 				stats.alignmentLength - stats.numGapOpens;
 			int len_seqh = seqan::length(seqan::source(seqsh[i]));
-			int len_seqv = seqan::length(seqan::source(seqsv[i]));
-			// if (std::max((alen_minus_gapopens / len_seqh),
-			// 			 (alen_minus_gapopens / len_seqv)) >= 0.7 &&
-			// 	stats.alignmentIdentity >= 30)
-			// {
-				ss << (col_offset + mattuples.colindex(lids[i])) << ","
-				   << (row_offset + mattuples.rowindex(lids[i]))  << ","
-				   << stats.alignmentIdentity << ","
-				   << len_seqh << ","
-				   << len_seqv << ","
-				   << (clippedEndPosition(seqsh[i]) -
-					   clippedBeginPosition(seqsh[i]) - 1) << ","
-				   << (clippedEndPosition(seqsv[i]) -
-					   clippedBeginPosition(seqsv[i]) - 1) << ","
-				   << stats.numGapOpens << ","
-				   << alen_minus_gapopens / len_seqh << ","
-				   << alen_minus_gapopens / len_seqv << ","
-				   << cks.count
-				   << "\n";
-			// }
-		}
+ 			int len_seqv = seqan::length(seqan::source(seqsv[i]));
 
-		#pragma omp critical
-		{
-			afs << ss.str();
-			afs.flush();
+			// only keep alignments that meet coverage and ani criteria
+			if (std::max((alen_minus_gapopens / len_seqh),
+						 (alen_minus_gapopens / len_seqv)) >= thr_cov &&
+				stats.alignmentIdentity >= thr_ani)
+			{
+				pastis::CommonKmers *cks = std::get<2>(mattuples[lids[i]]);
+				cks->score_aln = (float)stats.alignmentIdentity / 100.0f;
+				cks->score = 1;	// keep this
+			}
 		}
 	}
 

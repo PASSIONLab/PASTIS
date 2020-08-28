@@ -35,7 +35,8 @@ public:
 //  uint64_t align_seqs();
   void write_overlaps(const char *file);
   void run(PairwiseFunction *pf, const char* file, std::ofstream& lfs, int log_freq);
-  void run_batch(PairwiseFunction *pf, const char* file, std::ofstream& lfs,
+	void run_batch(PairwiseFunction *pf, const std::string &aln_file,
+				   std::ofstream& lfs,
 				 int log_freq, int ckthr, float mosthr, TraceUtils tu,
 				 bool score_only = false);
 

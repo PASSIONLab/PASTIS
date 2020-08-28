@@ -14,6 +14,7 @@ namespace pastis{
      */
     ushort count;
 	short score;
+	float score_aln;			// used for storing alignment score
 
     /*! The position within the sequence, which is
      * much less than 2^16 - 1 for proteins
@@ -21,8 +22,14 @@ namespace pastis{
     std::pair<ushort, ushort> first;
     std::pair<ushort, ushort> second;
 
-	  CommonKmers() : count(1), score(-1) {
+	CommonKmers() : count(1), score(-1) {
     }
+
+	CommonKmers (short score, float score_aln) :
+		score(score),
+		score_aln(score_aln)
+	{
+	}
 
     explicit CommonKmers(ushort count) : count(count){
     }
@@ -59,6 +66,19 @@ namespace pastis{
 			tmp.second = arg.first;
 		}
 		return tmp;
+	}
+  };
+
+  struct CkOutputHandler
+  {
+    template <typename c, typename t>
+	void save(std::basic_ostream<c,t> &os,
+			  const pastis::CommonKmers &v,
+			  uint64_t row,
+			  uint64_t col)
+	{
+		// os << v.score << " " << v.nrm_score;
+		os << v.score_aln;
 	}
   };
 }
