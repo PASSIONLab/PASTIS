@@ -592,6 +592,11 @@ DistributedFastaData::wait()
 
 			++recv_nbr_idx;
 		}
+
+		if (nbr.rc_flag == 1)
+			cur_rseq += nbr_seqs_count;
+		else
+			cur_cseq += nbr_seqs_count;
 	}
 
 #ifndef NDEBUG

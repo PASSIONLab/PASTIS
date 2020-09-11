@@ -437,11 +437,11 @@ DistributedPairwiseRunner::run_batch
 								nelims_both_tot) + "\n");
 
 	// prune pairs that do not meet coverage criteria
-	std::string outfile = aln_file + std::string("-pruned-C.mtx");
+	// std::string outfile = aln_file + std::string("-pruned-C.mtx");
 	auto elim_cov = [] (pastis::CommonKmers &ck)
 		{return ck.score == 0;};
 	gmat->Prune(elim_cov);
-	gmat->ParallelWriteMM(outfile, false, pastis::CkOutputHandler());
+	gmat->ParallelWriteMM(aln_file, true, pastis::CkOutputHandler());
 	tu.print_str("nnzs in the pruned matrix " +
 				 std::to_string(gmat->getnnz()) + "\n");
 	
