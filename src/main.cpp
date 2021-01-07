@@ -77,7 +77,9 @@ int banded_half_width = 5;
 std::string idx_map_file;
 
 /*! Alphabet to use. */
-Alphabet::type alph_t;
+// Alphabet::type alph_t;
+Alphabet *alph;
+std::string alph_str;
 
 bool is_print_rank = false;
 std::string print_str;
@@ -192,16 +194,13 @@ main
 		tu.print_str(print_str);
 	}
 
-	/*! Create alphabet */
-	Alphabet alph(alph_t);
-
 	/*! Generate sequences by kmers matrix */
 	std::unordered_set<pastis::Kmer, pastis::Kmer> local_kmers;
 	tp->times["start_main:genA()"] = std::chrono::system_clock::now();
 	PSpMat<pastis::MatrixEntry>::MPI_DCCols A =
 		pastis::KmerOps::generate_A(
 			seq_count,dfd, klength, kstride,
-			alph, parops, tp, local_kmers);
+			*alph, parops, tp, local_kmers);
 	tu.print_str("Matrix A: ");
 	tu.print_str("\nLoad imbalance: " +
 				 std::to_string(A.LoadImbalance()) + "\n");
@@ -222,7 +221,7 @@ main
 	{
 	  	tp->times["start_main:genS()"] = std::chrono::system_clock::now();
 	  	S = new PSpMat<pastis::MatrixEntry>::MPI_DCCols
-			(pastis::KmerOps::generate_S(klength, subk_count, alph, parops, tp,
+			(pastis::KmerOps::generate_S(klength, subk_count, *alph, parops, tp,
 										 local_kmers));
 		tp->times["end_main:genS()"] = std::chrono::system_clock::now();
 		tu.print_str("Matrix S: ");
@@ -521,16 +520,32 @@ int parse_args(int argc, char **argv) {
   }
 
   if (result.count(CMD_OPTION_ALPH)) {
-    std::string tmp = result[CMD_OPTION_ALPH].as<std::string>();
-    if (tmp == "protein"){
-      alph_t = Alphabet::PROTEIN;
-    } else {
+    alph_str = result[CMD_OPTION_ALPH].as<std::string>();
+	// if (is_world_rank0)
+	// 	std::cout << alph_str << std::endl;
+	
+    if (alph_str == string("pdefault")){
+	  alph = new DefaultProteinAlph();
+		  // alph_t = Alphabet::PROTEIN;
+    }
+	else if (alph_str == string("murphy10"))
+		alph = new Murphy10ProteinAlph();
+	else if (alph_str == string("dssp10"))
+		alph = new DSSP10ProteinAlph();
+	else if (alph_str == string("gbmr10"))
+		alph = new GBMR10ProteinAlph();
+	else if (alph_str == string("td10"))
+		alph = new TD10ProteinAlph();
+	else if (alph_str == string("diamond"))
+		alph = new DiamondProteinAlph();
+	else {
       if (is_world_rank0) {
-        std::cout << "ERROR: Unsupported alphabet type " << tmp << std::endl;
+        std::cout << "ERROR: Unsupported alphabet type " << alph_str << std::endl;
       }
     }
   } else {
-    alph_t = Alphabet::PROTEIN;
+	  // alph_t = Alphabet::PROTEIN;
+	  alph = new DefaultProteinAlph();
   }
 
   if (result.count(CMD_OPTION_SUBS)) {
@@ -613,7 +628,7 @@ void pretty_print_config(std::string &append_to) {
     bool_to_str(xdrop_align) + (xdrop_align ? "| xdrop: " + std::to_string(xdrop) : ""),
     bool_to_str(banded_align) + (banded_align ? " | half band: " + std::to_string(banded_half_width) : ""),
     !idx_map_file.empty() ? idx_map_file : "None",
-    std::to_string(alph_t),
+    alph_str,
     bool_to_str(add_substitue_kmers) + (add_substitue_kmers ? " | sub kmers: " + std::to_string(subk_count) : ""),
 	std::to_string(ckthr),
 	std::to_string(mosthr),

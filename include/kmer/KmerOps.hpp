@@ -48,13 +48,16 @@ namespace pastis {
             // small case character, so make it uppercase.
             cap_c = cap_c - 32;
           }
-          kmer_str += cap_c;
+          // kmer_str += cap_c;
+		  kmer_str += alp.al_map[cap_c];
           kcode = kcode * base + alp.char_to_code[cap_c];
         }
 
         ++count;
         lcol_ids.push_back(kcode);
         local_kmers.emplace(kmer_str, kcode, alp, false);
+
+		// cout << kmer_str << " " << kcode << "\n";
 
         /*! Offset is relative to the sequence start, so unsigned short is
          * good enough. */

@@ -6,6 +6,8 @@
 #include <iostream>
 #include "../include/Alphabet.hpp"
 
+using std::fill_n;
+
 
 /*!
  * NOTE: We have added the base 'J' as well.
@@ -18,35 +20,26 @@
 const char* Alphabet::protein = "ARNDCQEGHILKMFPSTWYVBZX*J";
 const char* Alphabet::dna = "ACGT";
 
-Alphabet::Alphabet(Alphabet::type t) {
-  switch (t){
-    case PROTEIN:
-      init(protein);
-      size = 25;
-      max_char = 90;
-      break;
-    case DNA:
-      init(dna);
-      size = 4;
-      max_char = 84;
-      break;
-  }
+
+
+void
+Alphabet::init (void)
+{
+	unsigned char no_code = capacity;
+	fill_n(char_to_code, capacity, no_code);
+
+	unsigned char code = 0;
+	for (int i = 0; i < strlen(protein); ++i)
+	{
+		char c = protein[i];
+		char d = al_map[c];
+		if (char_to_code[d] == no_code)
+		{
+			char_to_code[d]	   = code;
+			code_to_char[code] = static_cast<unsigned char>(d);
+			++code;
+
+		}
+		char_to_code[c] = char_to_code[d];
+	}
 }
-
-void Alphabet::init(const std::string& alphabet) {
-  letters = alphabet;
-  unsigned no_code = capacity;
-  std::fill_n(char_to_code, capacity, no_code);
-
-  uchar code = 0;
-  for (const char &c : alphabet){
-    if(char_to_code[c] == no_code){
-      char_to_code[c] = code;
-      code_to_char[code] = static_cast<uchar>(c);
-      ++code;
-    }
-  }
-}
-
-
-

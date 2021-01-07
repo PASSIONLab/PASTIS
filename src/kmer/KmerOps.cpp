@@ -28,6 +28,10 @@ namespace pastis {
     }
     tp->times["end_kmerop:gen_A:loop_add_kmers()"] = std::chrono::system_clock::now();
 
+
+	// for (const auto &kmr : local_kmers)
+	// 	cout << kmr.str() << " " << kmr.code() << "\n";
+
     /*! Remove duplicate kmers and redistribute load */
     int kmer_universe_size = pow(alph.size, k);
     std::shared_ptr<bool[]> kmer_universe(new bool[kmer_universe_size]);
@@ -38,6 +42,8 @@ namespace pastis {
     MPI_Allreduce(MPI_IN_PLACE, kmer_universe.get(), kmer_universe_size, MPI_CXX_BOOL, MPI_LOR, MPI_COMM_WORLD);
     int unique_kmer_count = 0;
     unique_kmer_count = std::accumulate(kmer_universe.get(), kmer_universe.get()+kmer_universe_size, 0);
+
+	// cout << "unique kmer count " << unique_kmer_count << "\n";
 
     int q = unique_kmer_count / parops->world_procs_count;
     int r = unique_kmer_count - (q*parops->world_procs_count);
