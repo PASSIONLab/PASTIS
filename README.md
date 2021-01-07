@@ -96,6 +96,7 @@ The parameters and options of PASTIS are as follows:
   score is given by the highest overlap region of k-mers divided by the number
   k-mer length. The pairs whose such score is less than or equal to ```mosthr```
   are not aligned. ```[default: 0]```
+- ```--alph <string>```: Reduced alphabet to use. Default is not to use any kind of reduced alphabet. Choose from ```{pdefault, murphy10, dssp10, gbmr10, td10, diamond}```.
 
 
 ## Notes for running PASTIS on NERSC Cori
