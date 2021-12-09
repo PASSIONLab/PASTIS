@@ -385,7 +385,7 @@ main
 			 << nthreads << endl;
 
 	// logger and timer
-	is_log_active = true;
+	is_log_active = false;
 	// if (parops->g_rank == 0)
 	// 	is_log_active = true;
 	s_tmp = to_string(parops->g_rank);
