@@ -6,3 +6,6 @@
 	path = seqan
 	url = https://github.com/seqan/seqan
 	branch = develop
+[submodule "ADEPT"]
+	path = ADEPT
+	url = https://github.com/mgawan/ADEPT
