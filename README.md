@@ -108,8 +108,12 @@ Example run:
 ```mpirun -N 4 ./build/pastis -i ./tests/scope_77k.fa -c 77040  --af sim_mat.mtx --ckthr 1 --sxa 49```
 
 
+## GPU support
+PASTIS has GPU support for NVIDIA and AMD GPUs. Switch to CUDA or HIP branch to run PASTIS on systems with accelerators. The alignment option should be provided as ```--absw``` when running on GPUs as it is the alignment option supported for GPUs.
+
+
 ## Notes for running PASTIS on large datasets
-PASTIS supports a blocking mode for large datasets to perform similarity search in a blocked manner and save memory. In default, this mode is not enabled. If you run into out of memory errors, provide the number of blocks you want PASTIS to use with the options  ```--br``` and ```--bc```, where the target number of blocks is equal to the multiplication of these two parameters.
+PASTIS supports a blocking mode for large datasets to perform similarity search in a blocked manner and save memory. In default, this mode is not enabled. If you run into out of memory errors, provide the number of blocks you want PASTIS to use with the options  ```--br <integer>``` and ```--bc <integer>```, where the target number of blocks is equal to the multiplication of these two parameters.
 
 ## Notes for running PASTIS on NERSC Cori
 
