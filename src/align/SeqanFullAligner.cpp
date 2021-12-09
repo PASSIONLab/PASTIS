@@ -195,7 +195,7 @@ SeqanFullAligner::aln_batch
 		uint64_t lr = std::get<0>(mattuples[i]);
 		uint64_t lc = std::get<1>(mattuples[i]);
 		assert(lr+bl_roffset < rseqs_.size() &&
-			   lc_bl_coffset < cseqs_.size());
+			   lc+bl_coffset < cseqs_.size());
 		
 		seqsr[i-beg] = std::move(seqan::Gaps<seqan::Peptide>
 								 (rseqs_[lr+bl_roffset]));

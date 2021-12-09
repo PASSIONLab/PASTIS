@@ -204,6 +204,7 @@ private:
 			std::ostream &out = std::cout)
 	{
 		out_ = nullptr;
+		outf_ = nullptr;
 		if (active)
 			out_ = &out;
 		dbgf_ = new std::ofstream;
@@ -214,6 +215,7 @@ private:
 			const std::string &fname)
 	{
 		out_ = nullptr;
+		outf_ = nullptr;
 		if (active)
 		{
 			outf_ = new std::ofstream;
