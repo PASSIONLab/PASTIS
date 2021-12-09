@@ -109,8 +109,14 @@ Example run:
 
 
 ## GPU support
-PASTIS has GPU support for NVIDIA and AMD GPUs. Switch to CUDA or HIP branch to run PASTIS on systems with accelerators. The alignment option should be provided as ```--absw``` when running on GPUs as it is the alignment option supported for GPUs.
+PASTIS has GPU support for NVIDIA and AMD GPUs. Switch to CUDA or HIP branch to run PASTIS on systems with accelerators. The alignment option should be provided as ```--absw``` when running on GPUs as it is the alignment option supported for GPUs. To compile the ADEPT library, use:
+  * cd ADEPT
+  * mkdir build 
+  * cd build
+  * cmake ..
+  * make 
 
+In building the HIP branch, to build ADEPT you need to use the custom cmake file CMakeLists.txt-ADEPT provided in the repo. Copy this file into ADEPT directory by ```cp CMakeLists.txt-ADEPT ADEPT/CMakeLists.txt``` and follow the instructions provided above. In order to use HIP compiler, use ```cmake .. -DCMAKE_CXX_COMPILER=hipcc``` to configure make.
 
 ## Notes for running PASTIS on large datasets
 PASTIS supports a blocking mode for large datasets to perform similarity search in a blocked manner and save memory. In default, this mode is not enabled. If you run into out of memory errors, provide the number of blocks you want PASTIS to use with the options  ```--br <integer>``` and ```--bc <integer>```, where the target number of blocks is equal to the multiplication of these two parameters.
