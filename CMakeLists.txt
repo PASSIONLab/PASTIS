@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 3.11)
-project(pastis LANGUAGES C CXX)
+project(pastis LANGUAGES C CXX CUDA)
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(
 	${PROJECT_SOURCE_DIR}/seqan/include 
 	${PROJECT_SOURCE_DIR}/CombBLAS/install/include
 	${PROJECT_SOURCE_DIR}/CombBLAS/Applications
+	${PROJECT_SOURCE_DIR}/ADEPT
 	)
 
 link_directories(
     ${PROJECT_SOURCE_DIR}/CombBLAS/install/lib
+    ${PROJECT_SOURCE_DIR}/ADEPT/build/adept
     )
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -36,6 +38,18 @@ if (MPI_FOUND)
     include_directories(${MPI_INCLUDE_PATH})
     target_link_libraries(pastis PUBLIC ${MPI_LIBRARIES})
 endif()
+
+find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+if (CUDA_FOUND)
+	message(STATUS "Cuda found...")
+endif()
+message(STATUS "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+message(STATUS "${CUDART_LIBRARY}")
+target_include_directories(pastis PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+target_link_libraries(pastis PUBLIC ${CUDART_LIBRARY})
+
+# ADEPT
+target_link_libraries(pastis PUBLIC adept_lib_shared)
 
 if(OPENMP_FOUND OR OpenMP_CXX_FOUND)
     # Set THREADED if OpenMP is found

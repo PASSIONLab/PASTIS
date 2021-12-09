@@ -95,6 +95,33 @@ pw_aln_batch
 							nnzs_sym)*100.0)
 				 + "%)");
 
+	
+	// ADEPT aligner: both seqs cannot be greater than 1024
+	if (params.pw_aln == params_t::PwAln::ALN_ADEPT_GPUBSW)
+	{
+		auto seq_len_filter =
+			[&] (const tuple<uint64_t, uint64_t, NT> &t)
+			{
+				uint64_t lr, lc;
+				uint64_t gr = std::get<0>(t), gc = std::get<1>(t);
+				C.Owner(nrows, ncols, gr, gc, lr, lc);
+				uint64_t bl_roffset = bri == -1 ? 0 : dfd->bl_rseq_offset(bri);
+				uint64_t bl_coffset = bci == -1 ? 0 : dfd->bl_cseq_offset(bci);
+				return
+					(pwa.rseq_len(lr+bl_roffset) >= 1024) &&
+					(pwa.cseq_len(lc+bl_coffset) >= 1024);
+			};
+			C.PruneI(seq_len_filter);
+
+			uint64_t nnzs_seq_len = C.getnnz();
+			parops->info("  #elems (seq len filter): " +
+					 to_string(nnzs_seq_len) + " (#elim " +
+					 to_string(nnzs_thr-nnzs_seq_len) + " " +
+					 to_string((static_cast<double>(nnzs_thr-nnzs_seq_len)/
+								nnzs_thr)*100.0)
+					 + "%)");
+	}
+
 	parops->tp->stop_timer("sim:prune");
 
 	parops->tp->start_timer("sim:align_all");

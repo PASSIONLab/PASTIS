@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "../inc/align/AdeptBSWAligner.hpp"
 #include "../inc/align/PWAlign.hpp"
 #include "../inc/align/SeqanFullAligner.hpp"
 #include "../inc/align/SeqanXdropAligner.hpp"
@@ -122,6 +123,8 @@ mult_aln_bl_v2
 			pwa = new SeqanXdropAligner
 				(params.gap_open, params.gap_ext, params.klength,
 				 params.aln_seqan_xdrop, params.seed_count);
+		else if (params.pw_aln == params_t::PwAln::ALN_ADEPT_GPUBSW)
+			pwa = new AdeptBSWAligner(params.gap_open, params.gap_ext);
 				
 		parops->tp->start_timer("sim:construct_seqs");
 		// raw fasta data to aligner-specific representation
@@ -309,6 +312,8 @@ mult_aln_bl
 			pwa = new SeqanXdropAligner
 				(params.gap_open, params.gap_ext, params.klength,
 				 params.aln_seqan_xdrop, params.seed_count);
+	    else if (params.pw_aln == params_t::PwAln::ALN_ADEPT_GPUBSW)
+			pwa = new AdeptBSWAligner(params.gap_open, params.gap_ext);
 				
 		parops->tp->start_timer("sim:construct_seqs");
 		// raw fasta data to aligner-specific representation
@@ -493,6 +498,8 @@ mult_aln
 			pwa = new SeqanXdropAligner
 				(params.gap_open, params.gap_ext, params.klength,
 				 params.aln_seqan_xdrop, params.seed_count);
+		else if (params.pw_aln == params_t::PwAln::ALN_ADEPT_GPUBSW)
+			pwa = new AdeptBSWAligner(params.gap_open, params.gap_ext);
 
 		parops->tp->start_timer("sim:construct_seqs");
 
