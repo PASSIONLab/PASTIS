@@ -35,37 +35,40 @@ submodules. To get them all, use:
 ```
 git clone --recursive https://github.com/PASSIONLab/PASTIS
 ```
-
 If you already happen to have those libraries, they are needed within the PASTIS
 directory. So, link the installation directories under names "CombBLAS" and
 "seqan". Note that PASTIS uses master branch of CombBLAS and develop branch of
 SeqAn.
 
 
-2. Build CombBLAS:
-  * The following commands can be used to build and install CombBLAS:
-  ```
-    cd CombBLAS
-    mkdir build
-    mkdir install
-    cd build
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install ../
-    make -j4
-    make install         
-  ```
-3. SeqAn is a header only library, so there's no need to build it.
+2. Build CombBLAS; the following commands can be used to build and install CombBLAS:
+```
+cd CombBLAS
+mkdir build
+mkdir install
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install ../
+make -j4
+make install         
+```
+
+3. For SeqAn, switch to develop branch (needed for threads and vectorization):
+```
+cd seqan
+git fetch
+get checkout develop
+```
+
+SeqAn is a header only library, so there's no need to build it.
   
 ## Build and Test PASTIS
-
 To build PASTIS after cloning or downloading the source, use:
-  * mkdir build_release
-  * cd build_release
-  * cmake ..
-  * make
-
+  * mkdir build install
+  * cd build
+  * cmake .. -DCMAKE_INSTALL_PREFIX=../install
+  * make install
 To run tests, use:
   * ctest -V
-
 This will run PASTIS with the fasta file provided under tests directory, and
 produce output alignment information in the same directory.
 
@@ -74,22 +77,22 @@ produce output alignment information in the same directory.
 
 You can run PASTIS in parallel by specifying the number of processes to the mpirun or mpiexec command. The number of processes must be perfect square value.
 
-The parameters and options of PASTIS are as follows:
+The main parameters of PASTIS are as follows:
 - ```-i <string>```: Input FASTA file.
 - ```-c <integer>```: Number of sequences in the FASTA file.
-- ```--sc <integer>```: Seed count. ```[default: 2]```
 - ```-k <integer>```: K-mer length.
-- ```-s <integer>```: K-mers stride ```[default: 1]```
-- ```--subs <integer>```: Number of substitute K-mers. 
+- ```--na```: Do not perform alignment.
+- ```--sfa```: Seqan Smith-Waterman alignment.
+- ```--sxa <integer>```: Seqan X-drop alignment with the indicated drop value.
+- ```--absw```: ADEPT Striped Smith-Waterman (only available for GPUs).
+- ```--af <string>```: Final similarity matrix in matrix market file format.
+
+The additional parameters of PASTIS are as follows:
+- ```-O <integer>```: Fasta file parallel read overlap in bytes. ```[default: 10000]```
+- ```--sc <integer>```: Maximum seed count. ```[default: 2]```
+- ```-s <integer>```: K-mer stride. ```[default: 1]```
 - ```-g <integer>```: Gap open penalty (negative). ```[default: -11]```
 - ```-e <integer>```: Gap extension penalty (negative). ```[default: -2]```
-- ```-O <integer>```: Number of bytes to overlap when reading the input file in parallel. ```[default: 10000]```
-- ```--na```: Do not perform alignment.
-- ```--fa```: Smith-Waterman alignment.
-- ```--xa <integer>```: X-drop alignment with the indicated drop value.
-- ```--ba <integer>```: Banded alignment with the indicated band size.
-- ```--af <string>```: Output file to write alignment information. 
-- ```--idxmap <string>```: Output file for input sequences to ids used in PASTIS.
 - ```--ckthr <integer>```: Common k-mer threshold. The sequence pairs that have
   less or equal to this number of common k-mers are not aligned. ```[default: 0]```
 - ```--mosthr <float>```: Maximum overlap score threshold. The maximum overlap
@@ -97,7 +100,16 @@ The parameters and options of PASTIS are as follows:
   k-mer length. The pairs whose such score is less than or equal to ```mosthr```
   are not aligned. ```[default: 0]```
 - ```--alph <string>```: Reduced alphabet to use. Default is not to use any kind of reduced alphabet. Choose from ```{pdefault, murphy10, dssp10, gbmr10, td10, diamond}```.
+- ```--bsz <integer>```: Batch alignment size. ```[default: 1e7]```
+- ```--br <integer>```: Block multiplication row dimension. ```[default: 1]```
+- ```--bc <integer>```: Block multiplication column dimension. ```[default: 1]```
 
+Example run:
+```mpirun -N 4 ./build/pastis -i ./tests/scope_77k.fa -c 77040  --af sim_mat.mtx --ckthr 1 --sxa 49```
+
+
+## Notes for running PASTIS on large datasets
+PASTIS supports a blocking mode for large datasets to perform similarity search in a blocked manner and save memory. In default, this mode is not enabled. If you run into out of memory errors, provide the number of blocks you want PASTIS to use with the options  ```--br``` and ```--bc```, where the target number of blocks is equal to the multiplication of these two parameters.
 
 ## Notes for running PASTIS on NERSC Cori
 
@@ -105,10 +117,9 @@ The necessary modules for running PASTIS on Cori are as follows:
 * module swap PrgEnv-intel PrgEnv-gnu
 * module load cmake
 
-Make sure to pass the correct MPI wrappers to successfully run the tests:
-* cmake -DMPIEXEC_EXECUTABLE=/usr/bin/srun ..
+Build PASTIS with the wrappers:
+* cmake .. -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC
 * make
-* ctest -V
 
 
 ## Citation
