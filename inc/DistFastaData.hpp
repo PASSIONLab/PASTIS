@@ -111,8 +111,8 @@ private:
 	int bl_nsnbrs_;										   // number of sends
 	MPI_Request *bl_rreqs_ = nullptr;
 	MPI_Request *bl_sreqs_ = nullptr;
-	vector<uint64_t> bl_rseq_offsets_;
-	vector<uint64_t> bl_cseq_offsets_;
+	std::vector<uint64_t> bl_rseq_offsets_;
+	std::vector<uint64_t> bl_cseq_offsets_;
 	
 
 public:

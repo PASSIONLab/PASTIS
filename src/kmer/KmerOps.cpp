@@ -14,7 +14,7 @@
 #include "../../inc/util.hpp"
 
 using std::unordered_set;	using std::vector;	using std::string;
-using std::accumulate;
+using std::accumulate;	using std::to_string;
 
 extern shared_ptr<pastis::ParallelOps> parops;
 

@@ -3,6 +3,8 @@
 #include "../inc/FastaData.hpp"
 #include "../inc/macros.hpp"
 
+using std::to_string;
+
 
 
 namespace

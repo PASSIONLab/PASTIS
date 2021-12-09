@@ -39,7 +39,8 @@
 
 
 using std::string;	using std::shared_ptr;	using std::vector;	using std::move;
-using std::pair;	using std::tuple;
+using std::pair;	using std::tuple;	using std::to_string;
+using std::unordered_set;
 
 extern shared_ptr<pastis::ParallelOps> parops; // global var
 
