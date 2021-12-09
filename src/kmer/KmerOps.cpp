@@ -164,7 +164,8 @@ generate_A
 	MPI_Allreduce(MPI_IN_PLACE,
 				  kmer_universe,
 				  kmer_universe_size,
-				  MPI_CXX_BOOL,
+				  // MPI_CXX_BOOL,
+				  MPI_C_BOOL,
 				  MPI_LOR,
 				  MPI_COMM_WORLD);	
 
