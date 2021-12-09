@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+project(adept_test LANGUAGES CXX HIP)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(hip)
+
+add_compile_definitions(__HIP_PLATFORM_AMD__)
+add_compile_definitions(PLATFORM_AMD=true)
+
+include_directories(
+	adept
+	$ENV{ROCM_PATH}/include
+	)
+link_directories(
+	$ENV{ROCM_PATH}/lib
+	)
+
+message(STATUS "Adding Adept library")
+# add_subdirectory(adept)
+add_library(adept SHARED
+	adept/driver.cpp
+	adept/kernel.cpp
+	)
+
+# Set a default build type if none was specified
+set(default_build_type "Release")
+
