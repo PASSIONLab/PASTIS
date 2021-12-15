@@ -7,6 +7,7 @@
 #include "../../inc/align/AdeptBSWAligner.hpp"
 
 using std::string;	using std::vector;	using std::to_string;	using std::max;
+using std::min;
 
 extern shared_ptr<pastis::ParallelOps> parops;
 
@@ -180,6 +181,12 @@ AdeptBSWAligner::aln_batch
 	vector<string>	seqs_r(npairs);	// refs - longer seqs
 	uint64_t		max_rlen = 0;
 	uint64_t		max_qlen = 0;
+	// ADEPT needs uppercase seqs
+	auto f_upper = []
+		(char c)
+		{
+			return static_cast<char>(std::toupper(c));
+		};
 
 	int numThreads = 1;
 	#ifdef THREADED
@@ -209,6 +216,10 @@ AdeptBSWAligner::aln_batch
 			seqs_r[i-beg] = rseq;
 		}
 
+		std::transform(seqs_q[i-beg].begin(), seqs_q[i-beg].end(),
+					   seqs_q[i-beg].begin(), f_upper);
+		std::transform(seqs_r[i-beg].begin(), seqs_r[i-beg].end(),
+					   seqs_r[i-beg].begin(), f_upper);
 		max_rlen = max(max_rlen, seqs_r[i-beg].size());
 		max_qlen = max(max_qlen, seqs_q[i-beg].size());					   
 	}
@@ -245,22 +256,20 @@ AdeptBSWAligner::aln_batch
 		for (uint64_t i = 0; i < cur_cnt; ++i)
 		{
 			uint64_t cur = cur_beg+i;
-			int len_seqh = seqs_r[cur].size();
-			int len_seqv = seqs_q[cur].size();
+			int len_r = seqs_r[cur].size();
+			int len_q = seqs_q[cur].size();
+			int alen_r = res.ref_end[i]-res.ref_begin[i];
+			int alen_q = res.query_end[i]-res.query_begin[i];
 
-			double cov_longer =
-				(double)(res.ref_end[i]-res.ref_begin[i]) /
-				max(len_seqh, len_seqv);
-			double cov_shorter =
-				(double)(res.query_end[i]-res.query_begin[i]) /
-				min(len_seqh, len_seqv);
+			double cov_r = (double)(alen_r) / len_r;
+			double cov_q = (double)(alen_q) / len_q;
 
-			if (max(cov_longer, cov_shorter) >=
+			if (max(cov_r, cov_q) >=
 				params.aln_cov_thr) // coverage constraint
 			{
 				CommonKmerLight *ckl = std::get<2>(mattuples[beg+cur]);
 				ckl->score_aln = (float)(res.top_scores[i]) /
-					(float)min(len_seqh, len_seqv);
+					(float)min(len_r, len_q);
 			}
 		}
 		cur_beg += cur_cnt;
