@@ -29,5 +29,20 @@ pw_aln_batch
 	int									 bri = -1,
 	int									 bci = -1
 );
+
+
+template <typename NT>
+void
+pw_aln_batch_ovlp
+(
+ 	std::shared_ptr<DistFastaData>		 dfd,
+	combblas::SpParMat <uint64_t, NT, combblas::SpDCCols <uint64_t, NT>> &C,
+	PWAlign 							&pwa,
+	params_t							&params,
+	MultData<MatrixEntry, NT>	    	&md,
+	int									 bri = -1,
+	int									 bci = -1
+);
+
 	
 }

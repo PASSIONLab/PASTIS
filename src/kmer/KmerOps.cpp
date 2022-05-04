@@ -127,7 +127,8 @@ generate_A
 	parops->logger->log("approximate memory in usage " +
 						gb_str(parops->bytes_alloc));
 
-	parops->tp->start_timer("kmerop:gen_A:loop_add_kmers");
+	parops->tp->start_timer("seq-kmer-mat|add-kmers");
+	
 	for (uint64_t lseq_idx = 0; lseq_idx < lfd->local_count(); ++lseq_idx)
 	{
 		// parops->logger->debug("seq id " + to_string(lseq_idx));
@@ -138,7 +139,8 @@ generate_A
 					  alph, lcol_ids, lvals, parops, kmer_universe, nel_kmers);
 		lrow_ids.insert(lrow_ids.end(), num_kmers, lseq_idx + offset);
 	}
-	parops->tp->stop_timer("kmerop:gen_A:loop_add_kmers");
+
+	parops->tp->stop_timer("seq-kmer-mat|add-kmers");
 
 	parops->logger->log("#eliminated kmers due to foreign chars " +
 						to_string(nel_kmers));
@@ -218,11 +220,15 @@ generate_A
 	combblas::FullyDistVec<uint64_t, uint64_t> drows(lrow_ids, parops->grid);
 	combblas::FullyDistVec<uint64_t, uint64_t> dcols(lcol_ids, parops->grid);
 	combblas::FullyDistVec<uint64_t, MatrixEntry> dvals(lvals, parops->grid);
+
+	parops->tp->start_timer("sparse");
+	parops->tp->start_timer("seq-kmer-mat|assemble");
 	
-	parops->tp->start_timer("kmerop:gen_A:spMatA");
 	PSpMat<MatrixEntry>::MPI_DCCols A(n_rows, n_cols,
 									  drows, dcols, dvals, false);
-	parops->tp->stop_timer("kmerop:gen_A:spMatA");
+
+	parops->tp->stop_timer("sparse");
+	parops->tp->stop_timer("seq-kmer-mat|assemble");
 
 	#if PASTIS_DBG_LVL > 0
 	parops->bytes_alloc += A.getlocalnnz() * sizeof(uint64_t);

@@ -86,5 +86,18 @@ const char *CMD_OPTION_DESCRIPTION_SIM_BR = "Block row dimension.";
 
 const char *CMD_OPTION_SIM_BC = "bc";
 const char *CMD_OPTION_DESCRIPTION_SIM_BC = "Block col dimension.";
+
+const char *CMD_OPTION_THD_AFF = "aff";
+const char *CMD_OPTION_DESCRIPTION_THD_AFF = "Set thread affinities.";
+
+const char *CMD_OPTION_LB = "lb";
+const char *CMD_OPTION_DESCRIPTION_LB = "Load balancing (default: idx) [trg | idx].";
+
+const char *CMD_OPTION_PB = "pb";
+const char *CMD_OPTION_DESCRIPTION_PB = "Enable pre-blocking.";
+
+const char *CMD_OPTION_STATS = "stats";
+const char *CMD_OPTION_DESCRIPTION_STATS = "Print runtime and various statistics.";
+
 }
 

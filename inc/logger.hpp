@@ -99,7 +99,7 @@ public:
 			<< std::setw(2) << tinfo->tm_mday << "|"
 			<< std::setw(2) << tinfo->tm_hour << ":"
 			<< std::setw(2) << tinfo->tm_min << ":"
-			<< std::setw(2) << tinfo->tm_sec;		
+			<< std::setw(2) << tinfo->tm_sec;
 		
 		switch (ll)
 		{
@@ -191,12 +191,13 @@ public:
 	}
 	
 
+	std::ofstream					*outf_;
 
 private:
 
 	static std::shared_ptr<Logger>	 logger_;
 	std::ostream					*out_;
-	std::ofstream					*outf_;
+	
 	std::time_t						 tlog_;
 	std::ofstream                   *dbgf_;
 	

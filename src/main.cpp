@@ -1,3 +1,8 @@
+#include <cuda_runtime_api.h>
+#include <nvml.h>
+#include <omp.h>
+#include <sched.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -30,6 +35,67 @@ using std::to_string;	using std::vector;	using std::shared_ptr;
 using std::max;
 
 extern shared_ptr<pastis::ParallelOps> parops; // global var
+
+
+void
+set_thd_aff
+(
+    pastis::params_t &params
+)
+{
+	int nthds = 1;
+	#pragma omp parallel
+	{
+		nthds = omp_get_num_threads();
+	}
+
+	int ndevices = 0;
+	cudaGetDeviceCount(&ndevices);
+
+	// if (parops->g_rank == 0)
+	// 	cout << "#threads per task " << nthds
+	// 		 << " #devices per task " << ndevices << endl;
+
+	// important is the first nthds-ndevices threads
+	params.omp_thd_aff = std::vector<int>(nthds);
+	params.gpu_thd_aff = std::vector<int>(ndevices);
+
+	int tid;
+	#pragma omp parallel private(tid)
+	{
+		tid = omp_get_thread_num();
+		params.omp_thd_aff[tid] = sched_getcpu();
+	}
+
+	for (int i = 0; i < ndevices; ++i)
+		params.gpu_thd_aff[i] = 148 + (i*4);
+
+
+	////////////////////////////////////////////////////////////////////////////
+	// 1 task per node - for better GPU thread affinity @summit
+	params.omp_thd_aff =
+		{  0,   4,   8,  12,  16,  20,  24,  28, // 8
+		  32,  36,  40,  44,  48,  52,  56,  60, // 16
+		  64,  68,								 // 18
+		  88,  92,  96, 100, 104, 108, 112, 116, // 26
+		 120, 124, 128, 132, 136, 140, 144, 148, // 34
+		 152, 156,								 // 36
+		  72,  76,  80,							 // 37-39
+		 160, 164, 168							 // 40-42
+		};
+	params.gpu_thd_aff = {72, 76, 80, 160, 164, 168};
+
+	// int tid;
+	cpu_set_t cpu_mask;
+	#pragma omp parallel private(tid, cpu_mask)
+	{
+		tid = omp_get_thread_num();
+		CPU_ZERO(&cpu_mask); CPU_SET(params.omp_thd_aff[tid], &cpu_mask);
+		sched_setaffinity((pid_t)0, sizeof(cpu_mask), &cpu_mask);
+		// printf("thread %d on cpu %d\n", tid, sched_getcpu());
+	}
+	////////////////////////////////////////////////////////////////////////////
+}
 
 
 
@@ -89,7 +155,12 @@ parse_args
 	(pastis::CMD_OPTION_SIM_BR, pastis::CMD_OPTION_DESCRIPTION_SIM_BR,
      cxxopts::value<int>())
     (pastis::CMD_OPTION_SIM_BC, pastis::CMD_OPTION_DESCRIPTION_SIM_BC,
-     cxxopts::value<int>());
+     cxxopts::value<int>())
+	(pastis::CMD_OPTION_THD_AFF, pastis::CMD_OPTION_DESCRIPTION_THD_AFF)
+	(pastis::CMD_OPTION_LB, pastis::CMD_OPTION_DESCRIPTION_LB,
+     cxxopts::value<string>())
+	(pastis::CMD_OPTION_PB, pastis::CMD_OPTION_DESCRIPTION_PB)
+	(pastis::CMD_OPTION_STATS, pastis::CMD_OPTION_DESCRIPTION_STATS);
 
 	// defaults
 	params.write_overlaps	   = false;
@@ -102,11 +173,15 @@ parse_args
 	params.mosthr			   = -1.0f;
 	params.idx_map_file 	   = "";
 	params.afreq			   = 1e6;
-	params.aln_batch_sz		   = 1e7;
+	params.aln_batch_sz		   = 1e10;
 	params.aln_cov_thr		   = 0.7;
 	params.aln_ani_thr		   = 30;
 	params.br				   = -1; // default not-blocked
 	params.bc				   = -1;
+	params.set_aff			   = false;
+	params.lb				   = pastis::params_t::LoadBal::LB_IDX;
+	params.pb				   = false;
+	params.stats			   = false;
 
 	bool	is_world_rank0 = parops->g_rank == 0;
 	auto	result		   = options.parse(argc, argv);
@@ -253,7 +328,30 @@ parse_args
 		params.br = result[pastis::CMD_OPTION_SIM_BR].as<int>();
 
 	if (result.count(pastis::CMD_OPTION_SIM_BC))
-		params.bc = result[pastis::CMD_OPTION_SIM_BC].as<int>();	
+		params.bc = result[pastis::CMD_OPTION_SIM_BC].as<int>();
+
+	if (result.count(pastis::CMD_OPTION_THD_AFF))
+	{
+		params.set_aff = true;
+		set_thd_aff(params);
+	}
+
+	if (result.count(pastis::CMD_OPTION_PB))
+		params.pb = true;
+
+	if (result.count(pastis::CMD_OPTION_LB))
+	{
+		string tmp = result[pastis::CMD_OPTION_LB].as<string>();
+		if (tmp == string("idx"))
+			params.lb = pastis::params_t::LoadBal::LB_IDX;
+		else if (tmp == string("trg"))
+			params.lb = pastis::params_t::LoadBal::LB_TRG;
+	}
+
+	if (result.count(pastis::CMD_OPTION_STATS))
+		params.stats = true;
+
+	
 
   	return 0;
 }
@@ -288,7 +386,11 @@ params_to_str
 		"Max overlap score threshold (--mosthr)",
 		"Batch alignment size (--bsz)",
 		"Block mult row dim (--br)",
-		"Block mult col dim (--bc)"
+		"Block mult col dim (--bc)",
+		"Set thread affinities (--aff)",
+		"Load balancing scheme (--lb)",
+		"Pre-blocking (--pb)",
+		"Print statistics (--stats)"
 	};
 
 	auto bool_to_str = [] (bool b)
@@ -332,7 +434,12 @@ params_to_str
 		to_string(params.mosthr),
 		to_string(params.aln_batch_sz),
 		to_string(params.br),
-		to_string(params.bc)
+		to_string(params.bc),
+		bool_to_str(params.set_aff),
+		(params.lb == pastis::params_t::LoadBal::LB_IDX)
+			? "index-based" : "triangular",
+		bool_to_str(params.pb),
+		bool_to_str(params.stats)
 	  };
 
 	int max_length = 0;
@@ -346,7 +453,25 @@ params_to_str
 		s.append("  ").append(param).append(": ")
 			.append(string(max_length-param.size(), ' '))
 			.append(vals[i]).append("\n");
-	}  
+	}
+
+	if (params.set_aff)
+	{
+		// s.append("\nThread affinities: #threads per task " +
+		// 		 to_string(params.omp_thd_aff.size() +
+		// 				   params.gpu_thd_aff.size()) +
+		// 		 " #gpus per task " +
+		// 		 to_string(params.gpu_thd_aff.size()) + "\n");
+		s.append("\nThread affinities:\n");
+		s.append("  OpenMP threads: ");
+		for (int el : params.omp_thd_aff)
+			s.append(to_string(el) + " ");
+		s.append("\n");
+		s.append("  GPU threads   : ");
+		for (int el : params.gpu_thd_aff)
+			s.append(to_string(el) + " ");
+		s.append("\n");
+	}
 }
 	
 
@@ -385,17 +510,24 @@ main
 			 << nthreads << endl;
 
 	// logger and timer
+	// size_t tmp = params.input_file.find_last_of("/\\");
+	// string fname = params.input_file.substr(tmp+1);
+	// string dname = params.input_file.substr(0, tmp);
 	is_log_active = false;
 	// if (parops->g_rank == 0)
 	// 	is_log_active = true;
 	s_tmp = to_string(parops->g_rank);
 	parops->logger = pastis::Logger::instantiate
 		(is_log_active,
-		 "pastis-" + string(4-s_tmp.size(), '0') + s_tmp + ".log");
+		 // "/dev/null"
+		 params.input_file +
+		 "-pastis-" +
+		 string(4-s_tmp.size(), '0') + s_tmp + ".log"
+		 );
 
-	parops->tp->start_timer("main");
-	s_tmp = "\nINFO: Program started on ";
-	s_tmp.append(parops->tp->get_time_str("start_main")).append("\n");
+	parops->tp->start_timer("total");
+	
+	s_tmp = "";
 	params_to_str(params, s_tmp);
 	if (parops->g_rank == 0)
 		cout << s_tmp << endl;
@@ -405,12 +537,20 @@ main
 		params.pw_aln == pastis::params_t::PwAln::ALN_ADEPT_GPUBSW)
 		pastis::compute_sim_mat<pastis::CommonKmerLight>(params);
 	else if (params.pw_aln == pastis::params_t::PwAln::ALN_SEQAN_XDROP)
-		pastis::compute_sim_mat<pastis::CommonKmerLoc>(params);	
+		pastis::compute_sim_mat<pastis::CommonKmerLoc>(params);
+	
+	parops->tp->stop_timer("total");
 
-	parops->tp->stop_timer("main");
-	if (parops->g_rank == 0)
-		cout << parops->tp->to_string() << endl;
-	parops->logger->log("\n" + parops->tp->to_string());
+	parops->logger->log("all timers stopped");
+
+	if (params.stats)
+	{	
+		string stats = parops->tp->to_string();
+		if (parops->g_rank == 0)
+			cout << stats << endl;
+		parops->logger->log("\n" + stats);
+	}	
+	
 	parops->teardown_parallelism();
 	
 

@@ -32,7 +32,7 @@ private:
 
 public:
 
-	AdeptBSWAligner (int gap_open, int gap_ext, uint32_t bsz = 1e6) :
+	AdeptBSWAligner (int gap_open, int gap_ext, uint32_t bsz = 2e5) :
 		PWAlign(), gaps_(gap_open, gap_ext), g_batch_sz_(bsz)
 	{
 		// Blosum62
@@ -88,6 +88,14 @@ public:
 			   uint64_t bl_roffset, uint64_t bl_coffset,
 			   const params_t &params) override;
 
+
+	void
+	aln_batch_ovlp (std::tuple<uint64_t, uint64_t,
+					CommonKmerLight *> *mattuples,
+					uint64_t beg, uint64_t end,
+					uint64_t bl_roffset, uint64_t bl_coffset,
+					MultData<MatrixEntry, CommonKmerLight> &md,
+					const params_t &params) override;
 
 
 	size_t

@@ -65,6 +65,33 @@ public:
 
 
 	virtual
+	void
+	aln_batch_ovlp (std::tuple<uint64_t, uint64_t,
+					CommonKmerLight *> *mattuples,
+					uint64_t beg, uint64_t end,
+					uint64_t bl_roffset, uint64_t bl_coffset,
+					MultData<MatrixEntry, CommonKmerLight> &md,
+					const params_t &params)
+	{
+	}
+
+
+
+	virtual
+	void
+	aln_batch_ovlp (std::tuple<uint64_t, uint64_t,
+					CommonKmerLoc *> *mattuples,
+					uint64_t beg, uint64_t end,
+					uint64_t bl_roffset, uint64_t bl_coffset,
+					MultData<MatrixEntry, CommonKmerLoc> &md,
+					const params_t &params)
+	{
+	}
+
+
+
+
+	virtual
 	size_t
 	rseq_len (uint64_t i)
 	{

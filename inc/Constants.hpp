@@ -89,4 +89,17 @@ extern const char *CMD_OPTION_DESCRIPTION_SIM_BR;
 
 extern const char *CMD_OPTION_SIM_BC;
 extern const char *CMD_OPTION_DESCRIPTION_SIM_BC;
+
+extern const char *CMD_OPTION_THD_AFF;
+extern const char *CMD_OPTION_DESCRIPTION_THD_AFF;
+
+extern const char *CMD_OPTION_LB;
+extern const char *CMD_OPTION_DESCRIPTION_LB;
+
+extern const char *CMD_OPTION_PB;
+extern const char *CMD_OPTION_DESCRIPTION_PB;
+
+extern const char *CMD_OPTION_STATS;
+extern const char *CMD_OPTION_DESCRIPTION_STATS;
+
 }
