@@ -431,7 +431,7 @@ AdeptBSWAligner::aln_batch_ovlp
 			parops->logger->log("Creating multiplication thread");
 			thd_mult = thread{&MultData<MatrixEntry,
 							  CommonKmerLight>::computeNext,
-							  &md, numThreads-6};
+							  &md, numThreads};
 		}
 		else
 		{
@@ -440,7 +440,7 @@ AdeptBSWAligner::aln_batch_ovlp
 			parops->logger->log("Creating multiplication thread");
 			thd_mult = thread{&MultData<MatrixEntry,
 							  CommonKmerLight>::computeNext_trg,
-							  &md, numThreads-6};
+							  &md, numThreads};
 		}
 	}
 

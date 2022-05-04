@@ -156,7 +156,7 @@ parse_args
      cxxopts::value<int>())
     (pastis::CMD_OPTION_SIM_BC, pastis::CMD_OPTION_DESCRIPTION_SIM_BC,
      cxxopts::value<int>())
-	(pastis::CMD_OPTION_THD_AFF, pastis::CMD_OPTION_DESCRIPTION_THD_AFF)
+	// (pastis::CMD_OPTION_THD_AFF, pastis::CMD_OPTION_DESCRIPTION_THD_AFF)
 	(pastis::CMD_OPTION_LB, pastis::CMD_OPTION_DESCRIPTION_LB,
      cxxopts::value<string>())
 	(pastis::CMD_OPTION_PB, pastis::CMD_OPTION_DESCRIPTION_PB)
@@ -387,7 +387,7 @@ params_to_str
 		"Batch alignment size (--bsz)",
 		"Block mult row dim (--br)",
 		"Block mult col dim (--bc)",
-		"Set thread affinities (--aff)",
+		// "Set thread affinities (--aff)",
 		"Load balancing scheme (--lb)",
 		"Pre-blocking (--pb)",
 		"Print statistics (--stats)"
@@ -435,7 +435,7 @@ params_to_str
 		to_string(params.aln_batch_sz),
 		to_string(params.br),
 		to_string(params.bc),
-		bool_to_str(params.set_aff),
+		// bool_to_str(params.set_aff),
 		(params.lb == pastis::params_t::LoadBal::LB_IDX)
 			? "index-based" : "triangular",
 		bool_to_str(params.pb),
