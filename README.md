@@ -52,13 +52,6 @@ make -j4
 make install         
 ```
 
-3. For SeqAn, switch to develop branch (needed for threads and vectorization):
-```
-cd seqan
-git fetch
-get checkout develop
-```
-
 SeqAn is a header only library, so there's no need to build it.
   
 ## Build and Test PASTIS
