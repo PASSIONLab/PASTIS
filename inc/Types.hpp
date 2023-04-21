@@ -4,17 +4,24 @@
 
 #include <cstdint>
 #include <string>
+#include <type_traits>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
 #include "CombBLAS/CombBLAS.h"
 
 #include "Alphabet.hpp"
+#include "ParallelOps.hpp"
+#include "sr.hpp"
 
 typedef unsigned short ushort;
 typedef unsigned char uchar;
 typedef std::vector<uint64_t> uvec_64;
 typedef std::vector<uint64_t> uvec_16;
+
+
+extern shared_ptr<pastis::ParallelOps> parops;
 
 
 
@@ -47,8 +54,8 @@ params_t
 			ALN_NONE = 0,
 			ALN_SEQAN_FULL,
 			ALN_SEQAN_XDROP,
-			ALN_SEQAN_BANDED,
-			ALN_ADEPT_GPUBSW
+			ALN_SEQAN_BANDED// ,
+			// ALN_ADEPT_GPUBSW
 		};
 	std::string	align_file;
 	int			afreq;
@@ -70,6 +77,20 @@ params_t
 	float	mosthr;
 
 	int br, bc;					// blocked multiplication dimensions
+
+	// bool set_aff;
+	// std::vector<int> omp_thd_aff; // #cores per task
+	// std::vector<int> gpu_thd_aff; // #gpus per task
+
+	// bool pb;					// pre-blocking (i.e., overlap)
+	enum LoadBal
+		{
+			LB_IDX = 0,
+			LB_TRG
+		};
+	LoadBal lb;
+
+	bool stats;
 };
 
 

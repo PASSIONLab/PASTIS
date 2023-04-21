@@ -38,7 +38,8 @@ ScoreMatrix
 	// max ascii char for protein alphabet is Z, which has the code 90
 	ushort const row_size = 91;
     ushort const alph_size;
-	char score_[91*91]{};
+	// char score_[91*91]{};
+	int8_t score_[91*91]{};
 	std::map<char, std::vector<char>*> base_to_subtitutes; // subs for each char
 	std::vector<Penalty> penalties[91]{};
 
@@ -99,7 +100,8 @@ Blosum62 : ScoreMatrix
 private:
 
 	// chars only in protein alphabet (* and A-Z)
-	char const data[25*25] =
+	// char const data[25*25] =
+	int8_t const data[25*25] =
 		{
          4,-1,-2,-2, 0,-1,-1, 0,-2,-1,-1,-1,-1,-2,-1, 1, 0,-3,-2, 0,-2,-1, 0,-4,-1,
         -1, 5, 0,-2,-3, 1, 0,-2, 0,-3,-2, 2,-1,-3,-2,-1,-1,-3,-2,-3,-1, 0,-1,-4,-2,
@@ -132,6 +134,8 @@ private:
 
 public:
 
+	// @OGUZ-TODO @OGUZ-WARNING Review this when integrating
+	// subs. signed and char issue @summit
 	Blosum62 () :
 		ScoreMatrix(25)
 	{
@@ -150,7 +154,8 @@ public:
 			for (int j = 0; j < alph_size; ++j)
 			{
 				char cj = alph[j];
-				char s = data[data_offset + j];
+				// char s = data[data_offset + j];
+				int8_t s = data[data_offset + j];
 
 				score_[score_offset + cj] = s;
 

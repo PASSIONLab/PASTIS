@@ -17,6 +17,7 @@ using std::to_string;
 
 
 
+
 namespace
 pastis
 {
@@ -34,16 +35,20 @@ DistFastaData::DistFastaData
 	is_diagonal_cell =
 		parops->grid->GetRankInProcRow() == parops->grid->GetRankInProcCol();
 
-	parops->tp->start_timer("dfd:pfr->read_fasta");
+	parops->tp->start_timer("fasta|io-seqs");
+	
 	char *buff = nullptr;
 	uint64_t l_start, l_end;
 	read_fasta(file, buff, l_start, l_end);
-	parops->tp->stop_timer("dfd:pfr->read_fasta");
+	
+	parops->tp->stop_timer("fasta|io-seqs");
 
-	parops->tp->start_timer("dfd:new_FD");
+	parops->tp->start_timer("fasta|local-setup");
+	
 	fd = new FastaData(buff, k, l_start, l_end);
 	l_seq_count = fd->local_count();
-	parops->tp->stop_timer("dfd:new_FD");
+	
+	parops->tp->stop_timer("fasta|local-setup");
 
 	l_seq_counts = new uint64_t[parops->g_np];
 	MPI_Allgather(&l_seq_count, 1, MPI_UINT64_T, l_seq_counts,
@@ -84,11 +89,14 @@ DistFastaData::DistFastaData
 	parops->logger->log("g_seq_count " + to_string(g_seq_count));
 	parops->logger->log("orig_g_seq_offset " + to_string(orig_g_seq_offset));
 
+	parops->tp->start_timer("fasta|seq-comm-setup");
 
 	if (params.br == -1)
 		collect_grid_seqs();
 	else
 		collect_seqs(params.br, params.bc);
+
+	parops->tp->stop_timer("fasta|seq-comm-setup");
 }
 
 

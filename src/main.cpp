@@ -89,7 +89,10 @@ parse_args
 	(pastis::CMD_OPTION_SIM_BR, pastis::CMD_OPTION_DESCRIPTION_SIM_BR,
      cxxopts::value<int>())
     (pastis::CMD_OPTION_SIM_BC, pastis::CMD_OPTION_DESCRIPTION_SIM_BC,
-     cxxopts::value<int>());
+     cxxopts::value<int>())
+	(pastis::CMD_OPTION_LB, pastis::CMD_OPTION_DESCRIPTION_LB,
+     cxxopts::value<string>())
+	(pastis::CMD_OPTION_STATS, pastis::CMD_OPTION_DESCRIPTION_STATS);
 
 	// defaults
 	params.write_overlaps	   = false;
@@ -102,11 +105,15 @@ parse_args
 	params.mosthr			   = -1.0f;
 	params.idx_map_file 	   = "";
 	params.afreq			   = 1e6;
-	params.aln_batch_sz		   = 1e7;
+	params.aln_batch_sz		   = 1e10;
 	params.aln_cov_thr		   = 0.7;
 	params.aln_ani_thr		   = 30;
-	params.br				   = -1; // default not-blocked
-	params.bc				   = -1;
+	// params.br				   = -1; // default not-blocked
+	// params.bc				   = -1;
+	params.br				   = 1; // default not-blocked
+	params.bc				   = 1;
+	params.lb				   = pastis::params_t::LoadBal::LB_IDX;
+	params.stats			   = false;
 
 	bool	is_world_rank0 = parops->g_rank == 0;
 	auto	result		   = options.parse(argc, argv);
@@ -198,8 +205,8 @@ parse_args
 			result[pastis::CMD_OPTION_XDROP_ALIGN].as<int>();
 	}
   
-  	if (result.count(pastis::CMD_OPTION_GPUBSW_ALIGN))
-		params.pw_aln = pastis::params_t::PwAln::ALN_ADEPT_GPUBSW;
+  	// if (result.count(pastis::CMD_OPTION_GPUBSW_ALIGN))
+	// 	params.pw_aln = pastis::params_t::PwAln::ALN_ADEPT_GPUBSW;
 
   	if (result.count(pastis::CMD_OPTION_ALPH))
 	{
@@ -253,7 +260,21 @@ parse_args
 		params.br = result[pastis::CMD_OPTION_SIM_BR].as<int>();
 
 	if (result.count(pastis::CMD_OPTION_SIM_BC))
-		params.bc = result[pastis::CMD_OPTION_SIM_BC].as<int>();	
+		params.bc = result[pastis::CMD_OPTION_SIM_BC].as<int>();
+
+	if (result.count(pastis::CMD_OPTION_LB))
+	{
+		string tmp = result[pastis::CMD_OPTION_LB].as<string>();
+		if (tmp == string("idx"))
+			params.lb = pastis::params_t::LoadBal::LB_IDX;
+		else if (tmp == string("trg"))
+			params.lb = pastis::params_t::LoadBal::LB_TRG;
+	}
+
+	if (result.count(pastis::CMD_OPTION_STATS))
+		params.stats = true;
+
+	
 
   	return 0;
 }
@@ -280,7 +301,7 @@ params_to_str
 		"Overlap file (--of)",
 		"Alignment file (--af)",
 		"Alignment write frequency (--afreq)",
-		"Pairwise seq aligner (--na | --sfa | --sxa | --sba | -absw)",
+		"Pairwise seq aligner (--na | --sfa | --sxa | --sba)",
 		"Index map (--idxmap)",
 		"Alphabet (--alph)",
 		"Use substitute kmers (--subs)",
@@ -288,7 +309,9 @@ params_to_str
 		"Max overlap score threshold (--mosthr)",
 		"Batch alignment size (--bsz)",
 		"Block mult row dim (--br)",
-		"Block mult col dim (--bc)"
+		"Block mult col dim (--bc)",
+		"Load balancing scheme (--lb)",
+		"Print statistics (--stats)"
 	};
 
 	auto bool_to_str = [] (bool b)
@@ -307,8 +330,8 @@ params_to_str
 	else if (params.pw_aln == pastis::params_t::PwAln::ALN_SEQAN_BANDED)
 		aln_str = "Seqan banded (half band width " +
 			to_string(params.aln_seqan_banded_hw) + ")";
-	else if (params.pw_aln == pastis::params_t::PwAln::ALN_ADEPT_GPUBSW)
-		aln_str = "ADEPT BSW (GPU)";
+	// else if (params.pw_aln == pastis::params_t::PwAln::ALN_ADEPT_GPUBSW)
+	// 	aln_str = "ADEPT BSW (GPU)";
 
 	vector<string> vals = {
 		params.input_file,
@@ -332,7 +355,10 @@ params_to_str
 		to_string(params.mosthr),
 		to_string(params.aln_batch_sz),
 		to_string(params.br),
-		to_string(params.bc)
+		to_string(params.bc),
+		(params.lb == pastis::params_t::LoadBal::LB_IDX)
+			? "index-based" : "triangular",
+		bool_to_str(params.stats)
 	  };
 
 	int max_length = 0;
@@ -346,7 +372,7 @@ params_to_str
 		s.append("  ").append(param).append(": ")
 			.append(string(max_length-param.size(), ' '))
 			.append(vals[i]).append("\n");
-	}  
+	}
 }
 	
 
@@ -385,32 +411,48 @@ main
 			 << nthreads << endl;
 
 	// logger and timer
+	// size_t tmp = params.input_file.find_last_of("/\\");
+	// string fname = params.input_file.substr(tmp+1);
+	// string dname = params.input_file.substr(0, tmp);
 	is_log_active = false;
 	// if (parops->g_rank == 0)
 	// 	is_log_active = true;
 	s_tmp = to_string(parops->g_rank);
 	parops->logger = pastis::Logger::instantiate
 		(is_log_active,
-		 "pastis-" + string(4-s_tmp.size(), '0') + s_tmp + ".log");
+		 // "/dev/null"
+		 params.input_file +
+		 "-pastis-" +
+		 string(4-s_tmp.size(), '0') + s_tmp + ".log"
+		 );
 
-	parops->tp->start_timer("main");
-	s_tmp = "\nINFO: Program started on ";
-	s_tmp.append(parops->tp->get_time_str("start_main")).append("\n");
+	parops->tp->start_timer("total");
+	
+	s_tmp = "";
 	params_to_str(params, s_tmp);
 	if (parops->g_rank == 0)
 		cout << s_tmp << endl;
 
 	if (params.pw_aln == pastis::params_t::PwAln::ALN_NONE ||
-		params.pw_aln == pastis::params_t::PwAln::ALN_SEQAN_FULL ||
-		params.pw_aln == pastis::params_t::PwAln::ALN_ADEPT_GPUBSW)
+		params.pw_aln == pastis::params_t::PwAln::ALN_SEQAN_FULL//  ||
+		// params.pw_aln == pastis::params_t::PwAln::ALN_ADEPT_GPUBSW
+		)
 		pastis::compute_sim_mat<pastis::CommonKmerLight>(params);
 	else if (params.pw_aln == pastis::params_t::PwAln::ALN_SEQAN_XDROP)
-		pastis::compute_sim_mat<pastis::CommonKmerLoc>(params);	
+		pastis::compute_sim_mat<pastis::CommonKmerLoc>(params);
+	
+	parops->tp->stop_timer("total");
 
-	parops->tp->stop_timer("main");
-	if (parops->g_rank == 0)
-		cout << parops->tp->to_string() << endl;
-	parops->logger->log("\n" + parops->tp->to_string());
+	parops->logger->log("all timers stopped");
+
+	if (params.stats)
+	{	
+		string stats = parops->tp->to_string();
+		if (parops->g_rank == 0)
+			cout << stats << endl;
+		parops->logger->log("\n" + stats);
+	}	
+	
 	parops->teardown_parallelism();
 	
 

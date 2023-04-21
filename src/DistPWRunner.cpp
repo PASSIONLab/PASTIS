@@ -18,7 +18,6 @@ extern shared_ptr<pastis::ParallelOps> parops;
 
 
 
-
 namespace
 pastis
 {
@@ -42,8 +41,9 @@ pw_aln_batch
 
 	parops->info("Starting batch pairwise alignments.\n  "
 				 "#elems prior to pre-pruning: " + to_string(nnzs));
-	
-	parops->tp->start_timer("sim:prune");
+
+	parops->tp->start_timer("sparse");
+	parops->tp->start_timer("prune");
 	
 	// pre-prune the overlap matrix with symmetricity and kmer threshold
 	// constraints
@@ -79,6 +79,8 @@ pw_aln_batch
 	C.Prune(kmer_thr);
 
 	uint64_t nnzs_thr = C.getnnz();
+	parops->tp->mat_stats["kmer_thr"] += nnzs_thr;
+	parops->tp->mat_stats["seq_len_thr"] += nnzs_thr; // no elim due to seq len
 
 	// volatile int i = 0;
 	// char hostname[256];
@@ -95,9 +97,10 @@ pw_aln_batch
 							nnzs_sym)*100.0)
 				 + "%)");
 
-	parops->tp->stop_timer("sim:prune");
+	parops->tp->stop_timer("sparse");
+	parops->tp->stop_timer("prune");
 
-	parops->tp->start_timer("sim:align_all");
+	parops->tp->start_timer("align");
 
 	// batch alignment
 	// @OGUZ-TODO make this parallel
@@ -108,6 +111,8 @@ pw_aln_batch
 		uint64_t	batch_sz	= params.aln_batch_sz;
 		uint64_t	batch_cnt	= l_nnz/batch_sz + 1;
 		uint64_t	batch_idx	= 0;
+
+		parops->tp->start_timer("align|form-tuples");
 		
 		// get tuples (need local indices)
 		tuple<uint64_t, uint64_t, NT *> *mattuples =
@@ -125,12 +130,16 @@ pw_aln_batch
 			}
 		}
 
+		parops->tp->stop_timer("align|form-tuples");
+
 		#if PASTIS_DBG_LVL > 0
 		uint64_t tot_sz = (sizeof(uint64_t)*2 + sizeof(NT *)) * l_nnz;
 		parops->bytes_alloc += tot_sz;
 		parops->logger->log("approximate memory in usage " +
 							gb_str(parops->bytes_alloc));
 		#endif
+
+		parops->tp->start_timer("align|batch");
 		
 		while (batch_idx < batch_cnt)
 		{
@@ -148,6 +157,8 @@ pw_aln_batch
 			++batch_idx;
 		}
 
+		parops->tp->stop_timer("align|batch");
+
 		delete[] mattuples;
 
 		#if PASTIS_DBG_LVL > 0
@@ -155,9 +166,11 @@ pw_aln_batch
 		#endif		
 	}
 
-	parops->tp->stop_timer("sim:align_all");
+	parops->tp->stop_timer("align");
 
-	parops->tp->start_timer("sim:prune");
+	parops->tp->start_timer("sparse");
+	parops->tp->start_timer("prune");
+	
 
 	auto aln_prune = [] (NT &el)
 		{
@@ -165,7 +178,8 @@ pw_aln_batch
 		};
 	C.Prune(aln_prune);
 
-	parops->tp->stop_timer("sim:prune");
+	parops->tp->stop_timer("sparse");
+	parops->tp->stop_timer("prune");
 
 	uint64_t nnzs_aln = C.getnnz();
 	parops->info("  #elems (alignment thresholds): " +
@@ -174,7 +188,6 @@ pw_aln_batch
 				 to_string((static_cast<double>(nnzs_thr-nnzs_aln)/
 							nnzs_thr)*100.0)
 				 + "%)");
-	// C.ParallelWriteMM(params.align_file, true, CkOutputHandler<NT>());	
 }
 
 

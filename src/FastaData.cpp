@@ -6,7 +6,6 @@
 using std::to_string;
 
 
-
 namespace
 pastis
 {

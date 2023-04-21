@@ -181,7 +181,7 @@ SeqanFullAligner::aln_batch
 	const params_t										&params	
 )
 {
-	parops->tp->start_timer("sim:align_pre");
+	parops->tp->start_timer("align|pre");
 	
 	// form seqan pairs
 	seqan::StringSet<seqan::Gaps<seqan::Peptide>> seqsr;
@@ -189,7 +189,11 @@ SeqanFullAligner::aln_batch
 	resize(seqsr, end-beg, seqan::Exact{});
 	resize(seqsc, end-beg, seqan::Exact{});
 
-	#pragma omp for
+	parops->tp->mat_stats["aln_pairs"] += end - beg;
+
+	double aln_lens = 0;
+
+	#pragma omp parallel for reduction(+: aln_lens)
 	for (uint64_t i = beg; i < end; ++i)
 	{
 		uint64_t lr = std::get<0>(mattuples[i]);
@@ -201,9 +205,13 @@ SeqanFullAligner::aln_batch
 								 (rseqs_[lr+bl_roffset]));
 		seqsc[i-beg] = std::move(seqan::Gaps<seqan::Peptide>
 								 (cseqs_[lc+bl_coffset]));
+
+		aln_lens += seqan::length(seqan::source(seqsc[i-beg])) +
+							   seqan::length(seqan::source(seqsr[i-beg]));
 	}
 
-	parops->tp->stop_timer("sim:align_pre");
+	parops->tp->mat_stats["aln_pair_lens"] += aln_lens;
+	parops->tp->stop_timer("align|pre");
 
 
 	// parallel alignment delegated to seqan
@@ -218,14 +226,14 @@ SeqanFullAligner::aln_batch
 	seqan::ExecutionPolicy<seqan::Parallel, seqan::Vectorial> exec_policy;
 	setNumThreads(exec_policy, nthds);
 
-	parops->tp->start_timer("sim:align");
+	parops->tp->start_timer("align|cpu");
 
 	localAlignment(exec_policy, seqsc, seqsr, blosum62_);
 
-	parops->tp->stop_timer("sim:align");
+	parops->tp->stop_timer("align|cpu");
 
-
-	parops->tp->start_timer("sim:align_post");
+	parops->tp->start_timer("align|post");
+	
 
 	// stats
 	#pragma omp parallel
@@ -254,7 +262,7 @@ SeqanFullAligner::aln_batch
 		}
 	}
 
-	parops->tp->stop_timer("sim:align_post");
+	parops->tp->stop_timer("align|post");
 }
 	
 }

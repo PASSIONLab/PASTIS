@@ -61,6 +61,24 @@ public:
 			   const params_t &params)
 	{
 	}
+
+
+
+	virtual
+	size_t
+	rseq_len (uint64_t i)
+	{
+		return 0;
+	}
+
+
+
+	virtual
+	size_t
+	cseq_len (uint64_t i)
+	{
+		return 0;
+	}
 };
 
 

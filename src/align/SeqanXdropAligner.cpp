@@ -198,7 +198,7 @@ SeqanXdropAligner::aln_batch
 	const params_t										&params	
 )
 {
-	parops->tp->start_timer("sim:align_pre");
+	parops->tp->start_timer("align|pre");
 	uint64_t npairs = end-beg;
 		
 	// form seqan pairs
@@ -207,7 +207,11 @@ SeqanXdropAligner::aln_batch
 	resize(seqsr, npairs, seqan::Exact{});
 	resize(seqsc, npairs, seqan::Exact{});
 
-	#pragma omp for
+	parops->tp->mat_stats["aln_pairs"] += npairs;
+
+	double aln_lens = 0;
+
+	#pragma omp parallel for reduction(+: aln_lens)
 	for (uint64_t i = beg; i < end; ++i)
 	{
 		uint64_t lr = std::get<0>(mattuples[i]);
@@ -219,9 +223,13 @@ SeqanXdropAligner::aln_batch
 								 (rseqs_[lr+bl_roffset]));
 		seqsc[i-beg] = std::move(seqan::Gaps<seqan::Peptide>
 								 (cseqs_[lc+bl_coffset]));
+
+		aln_lens += seqan::length(seqan::source(seqsc[i-beg])) +
+							   seqan::length(seqan::source(seqsr[i-beg]));
 	}
 
-	parops->tp->stop_timer("sim:align_pre");
+	parops->tp->mat_stats["aln_pair_lens"] += aln_lens;
+	parops->tp->stop_timer("align|pre");
 
 	#if PASTIS_DBG_LVL > 0
 	uint64_t tot_sz = 0;
@@ -251,7 +259,7 @@ SeqanXdropAligner::aln_batch
 	std::vector<seqan::AlignmentStats> stats(npairs);
 	for (int cnt = 0; cnt < seed_cnt_; ++cnt)
 	{
-		parops->tp->start_timer("sim:align");
+		parops->tp->start_timer("align|pre");
 		
 		seqan::StringSet<seqan::Gaps<seqan::Peptide>> seqsc_ex;
 		seqan::StringSet<seqan::Gaps<seqan::Peptide>> seqsr_ex;
@@ -281,12 +289,15 @@ SeqanXdropAligner::aln_batch
 							   beginPositionV(seed), endPositionV(seed)));
 		}
 
+		parops->tp->stop_timer("align|pre");
+		parops->tp->start_timer("align|cpu");
+
 		// alignment
 		globalAlignment(exec_policy, seqsc_ex, seqsr_ex, blosum62_);
 
-		parops->tp->stop_timer("sim:align");
+		parops->tp->stop_timer("align|cpu");
 
-		parops->tp->start_timer("sim:align_post");
+		parops->tp->start_timer("align|post");
 
 		// stats
 		if (cnt == 0)
@@ -311,11 +322,11 @@ SeqanXdropAligner::aln_batch
 			}
 		}
 
-		parops->tp->stop_timer("sim:align_post");
+		parops->tp->stop_timer("align|post");
 	}
 	
 
-	parops->tp->start_timer("sim:align_post");
+	parops->tp->start_timer("align|post");
 
 	// stats
 	#pragma omp parallel
@@ -346,7 +357,7 @@ SeqanXdropAligner::aln_batch
 	// parops->bytes_alloc -= tot_sz;
 	// #endif
 
-	parops->tp->stop_timer("sim:align_post");
+	parops->tp->stop_timer("align|post");
 }
 	
 }
