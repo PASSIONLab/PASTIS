@@ -44,31 +44,6 @@ pw_aln_batch
 
 	parops->tp->start_timer("sparse");
 	parops->tp->start_timer("prune");
-	
-	// pre-prune the overlap matrix with symmetricity and kmer threshold
-	// constraints
-	// @OGUZ-TODO can do these both at once (kept for now for getting
-	// eliminiation stats)
-	if (bri == -1)				// not blocked
-	{
-		auto loc_up_tri =
-			[&nrows, &ncols, &C] (const tuple<uint64_t, uint64_t, NT> &t)
-			{
-				uint64_t lr, lc;
-				uint64_t gr = std::get<0>(t), gc = std::get<1>(t);
-				C.Owner(nrows, ncols, gr, gc, lr, lc);
-				return ((lc < lr) ||
-						((lc == lr) && (gc <= gr)));			
-			};
-			C.PruneI(loc_up_tri);
-	}
-	
-	uint64_t nnzs_sym = C.getnnz();
-	parops->info("  #elems (sym. constraint): " +
-				 to_string(nnzs_sym) + " (#elim " +
-				 to_string(nnzs-nnzs_sym) + " " +
-				 to_string((static_cast<double>(nnzs-nnzs_sym)/nnzs)*100.0)
-				 + "%)");
 
 	auto kmer_thr =
 		[&params] (const NT &v)
@@ -80,7 +55,6 @@ pw_aln_batch
 
 	uint64_t nnzs_thr = C.getnnz();
 	parops->tp->mat_stats["kmer_thr"] += nnzs_thr;
-	parops->tp->mat_stats["seq_len_thr"] += nnzs_thr; // no elim due to seq len
 
 	// volatile int i = 0;
 	// char hostname[256];
@@ -92,9 +66,9 @@ pw_aln_batch
 	
 	parops->info("  #elems (kmer thresholds): " +
 				 to_string(nnzs_thr) + " (#elim " +
-				 to_string(nnzs_sym-nnzs_thr) + " " +
-				 to_string((static_cast<double>(nnzs_sym-nnzs_thr)/
-							nnzs_sym)*100.0)
+				 to_string(nnzs-nnzs_thr) + " " +
+				 to_string((static_cast<double>(nnzs-nnzs_thr)/
+							nnzs)*100.0)
 				 + "%)");
 
 	parops->tp->stop_timer("sparse");

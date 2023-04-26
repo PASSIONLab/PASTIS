@@ -108,10 +108,10 @@ parse_args
 	params.aln_batch_sz		   = 1e10;
 	params.aln_cov_thr		   = 0.7;
 	params.aln_ani_thr		   = 30;
-	// params.br				   = -1; // default not-blocked
-	// params.bc				   = -1;
-	params.br				   = 1; // default not-blocked
-	params.bc				   = 1;
+	params.br				   = -1; // default not-blocked
+	params.bc				   = -1;
+	// params.br				   = 1; // default not-blocked
+	// params.bc				   = 1;
 	params.lb				   = pastis::params_t::LoadBal::LB_IDX;
 	params.stats			   = false;
 
@@ -301,7 +301,7 @@ params_to_str
 		"Overlap file (--of)",
 		"Alignment file (--af)",
 		"Alignment write frequency (--afreq)",
-		"Pairwise seq aligner (--na | --sfa | --sxa | --sba)",
+		"Pairwise seq aligner (--na | --sfa | --sxa)",
 		"Index map (--idxmap)",
 		"Alphabet (--alph)",
 		"Use substitute kmers (--subs)",

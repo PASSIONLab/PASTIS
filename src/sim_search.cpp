@@ -169,6 +169,7 @@ mult_aln_bl_idx
 			uint64_t cnnz = C.getnnz();
 			parops->tp->mat_stats["c_nnz"] += cnnz;
 
+			// symmetricity pruning
 			auto f_eo_idx =
 				[&roffset, &coffset]
 				(const tuple<uint64_t, uint64_t, T_OUT> &t)
@@ -192,6 +193,12 @@ mult_aln_bl_idx
 			
 			uint64_t cnnz_partial = C.getnnz();
 			parops->tp->mat_stats["prune_sym"] += cnnz_partial;
+			parops->info("  #elems (sym. constraint): " +
+						 to_string(cnnz_partial) + " (#elim " +
+						 to_string(cnnz-cnnz_partial) + " " +
+						 to_string((static_cast<double>(cnnz-cnnz_partial)
+									/cnnz)*100.0)
+						 + "%)");
 
 			if (pwa)
 				pw_aln_batch(dfd, C, *pwa, params, bri, bci);
@@ -409,6 +416,12 @@ mult_aln_bl_trg
 
 			uint64_t cnnz_partial = C.getnnz();
 			parops->tp->mat_stats["prune_sym"] += cnnz_partial;
+			parops->info("  #elems (sym. constraint): " +
+						 to_string(cnnz_partial) + " (#elim " +
+						 to_string(cnnz-cnnz_partial) + " " +
+						 to_string((static_cast<double>(cnnz-cnnz_partial)
+									/cnnz)*100.0)
+						 + "%)");
 
 			if (pwa)
 				pw_aln_batch(dfd, C, *pwa, params, bri, bci);
@@ -529,9 +542,6 @@ mult_aln
 	parops->tp->mat_stats["c_nnz"] += C.getnnz();
 
 
-	// @OGUZ-WARNING pruning is not done!
-
-
 	#if PASTIS_DBG_LVL > 0
 	parops->bytes_alloc += C.getlocalnnz() * sizeof(uint64_t);
 	parops->bytes_alloc += C.getlocalnnz() * sizeof(T_OUT);
@@ -545,6 +555,38 @@ mult_aln
 
 	parops->info("C (overlap matrix) load imbalance: " +
 				 to_string(C.LoadImbalance()));
+
+
+	parops->tp->start_timer("sparse");
+	parops->tp->start_timer("prune");
+	
+	// pre-prune the overlap matrix with symmetricity constraint
+	// @OGUZ-TODO can do these both at once (kept for now for getting
+	// eliminiation stats)
+	uint64_t	nrows = C.getnrow();
+	uint64_t	ncols = C.getncol();
+	uint64_t	nnzs  = C.getnnz();
+	auto loc_up_tri =
+		[&nrows, &ncols, &C] (const tuple<uint64_t, uint64_t, T_OUT> &t)
+		{
+			uint64_t lr, lc;
+			uint64_t gr = std::get<0>(t), gc = std::get<1>(t);
+			C.Owner(nrows, ncols, gr, gc, lr, lc);
+			return ((lc < lr) ||
+					((lc == lr) && (gc <= gr)));			
+		};
+	C.PruneI(loc_up_tri);	
+	
+	uint64_t nnzs_sym = C.getnnz();
+	parops->info("  #elems (sym. constraint): " +
+				 to_string(nnzs_sym) + " (#elim " +
+				 to_string(nnzs-nnzs_sym) + " " +
+				 to_string((static_cast<double>(nnzs-nnzs_sym)/nnzs)*100.0)
+				 + "%)");
+	parops->tp->mat_stats["prune_sym"] += nnzs_sym;
+
+	parops->tp->stop_timer("sparse");
+	parops->tp->stop_timer("prune");
 
 
 	// wait till receive grid seqs

@@ -60,12 +60,11 @@ TimePod
 
 
 	// block nnz stats added cumulatively - entire matrix info
-	string mat_stat_names[7] =
+	string mat_stat_names[6] =
 		{
 		 "c_nnz",
 		 "prune_sym",
 		 "kmer_thr",
-		 "seq_len_thr",
 		 "sim_thr",
 		 "aln_pairs",			// per-process
 		 "aln_pair_lens"		// per-process
