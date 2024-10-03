@@ -1,20 +1,7 @@
 
 # PASTIS: Distributed Many-to-Many Protein Sequence Alignment Using Sparse Matrices
 
-PASTIS Copyright (c) 2020, The Regents of the University of California,
-through Lawrence Berkeley National Laboratory (subject to receipt of
-any required approvals from the U.S. Dept. of Energy). All rights reserved.
-
-If you have questions about your rights to use or distribute this software,
-please contact Berkeley Lab's Intellectual Property Office at
-IPO@lbl.gov.
-
-NOTICE.  This Software was developed under funding from the U.S. Department
-of Energy and the U.S. Government consequently retains certain rights.  As
-such, the U.S. Government has been granted for itself and others acting on
-its behalf a paid-up, nonexclusive, irrevocable, worldwide license in the
-Software to reproduce, distribute copies to the public, prepare derivative 
-works, and perform publicly and display publicly, and to permit others to do so.
+PASTIS is a highly-parallel distributed protein sequence aligner. It relies on distributed sparse matrix and graph operations to scale expensive many-against-many sequence alignments. PASTIS uses novel techniques such as Blocked 2D Sparse SUMMA to reduce high memory overhead, custom matrix operations for load balancing and can take advantage of accelerators for faster alignments. In 2022, PASTIS was among the 6 finalists for the [Gordon Bell Prize](https://awards.acm.org/bell), completing a many-against-many search of 400 million protein sequences using over 20,000 GPUs in less than 3.5 hours and sustaining a rate of 690 million alignments per second. Accelerator-enabled GPU ports can be accessed under [CUDA](https://github.com/PASSIONLab/PASTIS/tree/CUDA) and [HIP](https://github.com/PASSIONLab/PASTIS/tree/HIP) branches in the repository. Refer to these [works](https://github.com/PASSIONLab/PASTIS?tab=readme-ov-file#citation) for more details.
 
 ## Prerequisites
 
@@ -137,3 +124,23 @@ Build PASTIS with the wrappers:
 If you use PASTIS in your research, please cite our paper describing the algorithm and the implementation:
 
   * Oguz Selvitopi*, Saliya Ekanayake*, Giulia Guidi, Georgios Pavlopoulos, Ariful Azad, and Aydın Buluç. Distributed Many-to-Many Protein Sequence Alignment Using Sparse Matrices. Proceedings of the International Conference for High Performance Computing, Networking, Storage, and Analysis (SC’20), 2020. (*:joint first authors) [pdf](https://people.eecs.berkeley.edu/~aydin/PASTIS-SC20.pdf)
+
+  * Selvitopi, Oguz, Saliya Ekanayake, Giulia Guidi, Muaaz G. Awan, Georgios A. Pavlopoulos, Ariful Azad, Nikos Kyrpides, Leonid Oliker, Katherine Yelick, and Aydin Buluç. "Extreme-scale many-against-many protein similarity search." In SC22: International Conference for High Performance Computing, Networking, Storage and Analysis, pp. 1-12. IEEE, 2022. **SC'22 Gordon Bell Prize Finalist**
+
+
+## Copyright
+
+PASTIS Copyright (c) 2020, The Regents of the University of California,
+through Lawrence Berkeley National Laboratory (subject to receipt of
+any required approvals from the U.S. Dept. of Energy). All rights reserved.
+
+If you have questions about your rights to use or distribute this software,
+please contact Berkeley Lab's Intellectual Property Office at
+IPO@lbl.gov.
+
+NOTICE.  This Software was developed under funding from the U.S. Department
+of Energy and the U.S. Government consequently retains certain rights.  As
+such, the U.S. Government has been granted for itself and others acting on
+its behalf a paid-up, nonexclusive, irrevocable, worldwide license in the
+Software to reproduce, distribute copies to the public, prepare derivative 
+works, and perform publicly and display publicly, and to permit others to do so.
